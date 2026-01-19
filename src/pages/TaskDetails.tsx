@@ -28,7 +28,8 @@ import {
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Link, useParams } from 'react-router-dom';
 import { RequestInfoDialog } from '@/components/commons/RequestInfoDialog';
-import useTask from '@/supabse/hook/useTask';
+import useTask, { useUpdateTask } from '@/supabse/hook/useTask';
+import { toast } from 'sonner';
 
 const taskDataMap = {
   'RFI-001': {
@@ -330,10 +331,11 @@ Failure to comply will result in rework at contractor's expense.`,
 };
 
 export default function TaskDetails() {
+  const [projectId, setProjectId] = useState(() => localStorage.getItem("selectedProjectId") || undefined);
   const { taskId } = useParams();
-  const taskData = taskDataMap[taskId] || taskDataMap['RFI-001'];
-  const currentStageIndex = taskData.timeline.stages.indexOf(taskData.timeline.current);
-  const { data, isLoading, error, refetch } = useTask();
+  const { data, isLoading } = useTask(projectId);
+  const { mutateAsync: updateTask } = useUpdateTask();
+  const [currentTask, setCurrentTask] = useState<any>(null);
   const [activeFormats, setActiveFormats] = useState({
     bold: false,
     italic: false,
@@ -341,36 +343,96 @@ export default function TaskDetails() {
     link: false,
     bulletList: false,
   });
-  const [currentTask, setCurrentTask] = useState(null);
+
+  const handleRequestInfoSubmit = async (requestData: any) => {
+    if (!currentTask) return;
+    
+    const currentRequests = currentTask.request_info && Array.isArray(currentTask.request_info) 
+      ? currentTask.request_info 
+      : [];
+      
+    const updatedRequests = [...currentRequests, requestData];
+    
+    try {
+      await updateTask({ 
+        id: currentTask.id, 
+        request_info: updatedRequests 
+      });
+      toast.success("Request sent successfully");
+      
+      // Optimistically update local state if needed, or rely on invalidation
+      setCurrentTask((prev: any) => ({...prev, request_info: updatedRequests}));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to send request");
+    }
+  };
 
   useEffect(() => {
-    if (isLoading) return;
-    const task = data?.data?.find((task) => task.id === taskId);
+    if (isLoading || !data) return;
+    const task = data.find((t: any) => t.id === taskId);
     setCurrentTask(task);
-  }, [taskId, data, isLoading])
+  }, [taskId, data, isLoading]);
+  
+  console.log("data",data);
 
-  console.log("currentTask", currentTask);
+  // Normalize task data for display
+  const displayTask = currentTask ? {
+    id: currentTask.id,
+    displayId: `#${currentTask.type}-${currentTask.id.slice(0, 4)}`,
+    title: currentTask.title,
+    dueDate: currentTask.due_date ? new Date(currentTask.due_date).toLocaleDateString() : 'No Date',
+    type: currentTask.type,
+    creator: { name: 'User', role: 'Creator', badge: currentTask.type },
+    watcher: { name: 'Watcher', role: 'Watcher' },
+    formFields: {
+      subject: currentTask.title,
+      discipline: currentTask.Discipline,
+      question: currentTask.Question,
+      instruction: currentTask.Instruction,
+      location: currentTask.Location,
+      urgency: currentTask.Urgency,
+      voReference: currentTask["VO Reference"],
+      costImpact: currentTask.Cost,
+      description: currentTask.description,
+      causeCategory: currentTask.Cause,
+      requestedExtension: currentTask.Extension, 
+      effectiveDate: currentTask.Effective_Date,
+      applicableTo: currentTask.Applicable_To,
+      complianceRequired: currentTask.Compliance,
+      proposedCost: currentTask.Cost, // For CPI if reused
+      items: null, // VO items are in description text now
+      justification: currentTask.description,
+      impactOnSchedule: "See description",
+    },
+    question: {
+        text: currentTask.Question || currentTask.description || currentTask.Instruction || "",
+        tags: []
+    },
+    actionRequests: currentTask?.request_info || [],
+    timeline: {
+        current: currentTask.status || 'Pending',
+        stages: ['Pending', 'In Review', 'Approved', 'Closed'],
+    },
+    deadlines: {
+        replyDue: currentTask.due_date ? new Date(currentTask.due_date).toLocaleDateString() : 'N/A',
+        contractWindow: '14 days',
+    },
+    impact: {
+        time: currentTask.Extension ? `${currentTask.Extension} days` : '0 days',
+        cost: currentTask.Cost || 'R 0',
+        riskScore: 50,
+        riskMax: 100,
+    },
+    linked: [],
+    audit: [
+        { action: 'Task Created', date: new Date(currentTask.created_at).toLocaleDateString(), isAI: false }
+    ],
+  } : (taskDataMap[taskId as keyof typeof taskDataMap] || taskDataMap['RFI-001']);
 
-  //   const editor = useEditor({
-  //     extensions: [
-  //       StarterKit,
-  //       BulletList,
-  //       ListItem,
-  //       TiptapUnderline,
-  //       TiptapLink.configure({
-  //         openOnClick: false,
-  //         HTMLAttributes: {
-  //           class: 'text-indigo-600 underline cursor-pointer',
-  //         },
-  //       }),
-  //     ],
-  //     content: '<p>Provide your formal response to this RFI...</p>',
-  //     editorProps: {
-  //       attributes: {
-  //         class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4',
-  //       },
-  //     },
-  //   });
+  const currentStageIndex = displayTask.timeline.stages.indexOf(displayTask.timeline.current) !== -1 
+    ? displayTask.timeline.stages.indexOf(displayTask.timeline.current) 
+    : 0;
 
   const editor = useEditor({
     extensions: [
@@ -389,7 +451,7 @@ export default function TaskDetails() {
         },
       }),
     ],
-    content: '<p>Provide your formal response to this RFI...</p>',
+    content: '<p>Provide your formal response here...</p>',
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4',
@@ -429,7 +491,6 @@ export default function TaskDetails() {
     editor.on('selectionUpdate', updateActive);
     editor.on('transaction', updateActive);
 
-    // initial check
     updateActive();
 
     return () => {
@@ -437,6 +498,10 @@ export default function TaskDetails() {
       editor.off('transaction', updateActive);
     };
   }, [editor]);
+
+  if (isLoading && !currentTask && !taskDataMap[taskId as keyof typeof taskDataMap]) {
+      return <div className="p-8 text-center">Loading task details...</div>;
+  }
 
   return (
     <DashboardLayout padding="p-0">
@@ -456,8 +521,8 @@ export default function TaskDetails() {
                 <div className="flex items-start justify-between mb-5">
                   <div className="flex-1">
                     <div className="flex items-center gap-4 mb-3">
-                      <h1 className="text-base  text-[#1B1C1F]">{taskData?.title}</h1>
-                      <p className="text-[#6B7280] text-sm">#{taskData?.id}</p>
+                      <h1 className="text-base  text-[#1B1C1F]">{displayTask.title}</h1>
+                      <p className="text-[#6B7280] text-sm">{displayTask.displayId || displayTask.id}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -465,7 +530,7 @@ export default function TaskDetails() {
                       variant="secondary"
                       className="bg-[#FFF7ED] rounded-[28px] px-[14px] py-2 text-[#F97316] border-[#FED7AA] text-xs"
                     >
-                      Due: {taskData?.dueDate}
+                      Due: {displayTask.dueDate}
                     </Badge>
                     <button className="text-gray-500 hover:text-gray-600">
                       <MoreVertical className="h-5 w-5" />
@@ -476,12 +541,12 @@ export default function TaskDetails() {
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Badge className="bg-[#FFF3E6] border-[#FED7AA] capitalize text-[#D97706] py-[7px] px-[13px]  text-xs">
-                      {taskData?.creator?.badge}
+                      {displayTask.creator.badge}
                     </Badge>
                     <div className="border border-[#E7E9EB] flex items-center bg-white px-[13px] rounded-[8px] gap-2 py-[6px]">
                       <User className="h-[14px] w-[14px] text-[#6B7280]" />
                       <span className="text-sm text-gray-900 ">
-                        {taskData?.creator?.name} <span className="text-sm text-gray-500">({taskData?.creator?.role})</span>
+                        {displayTask.creator.name} <span className="text-sm text-gray-500">({displayTask.creator.role})</span>
                       </span>
                     </div>
                   </div>
@@ -489,7 +554,7 @@ export default function TaskDetails() {
                     <div className="border border-[#E7E9EB] flex items-center bg-white px-[13px] rounded-[8px] gap-2 py-[6px]">
                       <User className="h-[14px] w-[14px] text-[#6B7280]" />
                       <span className="text-sm text-gray-900 ">
-                        {taskData?.watcher?.name} <span className="text-sm text-gray-500">({taskData?.watcher?.role})</span>
+                        {displayTask.watcher.name} <span className="text-sm text-gray-500">({displayTask.watcher.role})</span>
                       </span>
                     </div>
                   </div>
@@ -499,80 +564,94 @@ export default function TaskDetails() {
               {/* Question & Context */}
               <Card className="p-[25px] shadow-none pt-[22px] bg-white rounded-[14px] border-[#E7E9EB]">
                 <h2 className="text-base  text-[#0E1C2E] mb-5">
-                  {taskData.creator.badge === 'RFI' ? 'Question & Context' :
-                    taskData.creator.badge === 'SI' ? 'Instruction Details' :
-                      taskData.creator.badge === 'VO' ? 'Variation Order Details' :
-                        taskData.creator.badge === 'DC' ? 'Delay Claim Details' :
-                          taskData.creator.badge === 'CPI' ? 'Cost Proposal Details' :
-                            taskData.creator.badge === 'GI' ? 'General Instruction Details' :
+                  {displayTask.type === 'RFI' ? 'Question & Context' :
+                    displayTask.type === 'SI' ? 'Instruction Details' :
+                      displayTask.type === 'VO' ? 'Variation Order Details' :
+                        displayTask.type === 'DC' ? 'Delay Claim Details' :
+                          displayTask.type === 'CPI' ? 'Cost Proposal Details' :
+                            displayTask.type === 'GI' ? 'General Instruction Details' :
                               'Details'}
                 </h2>
 
                 {/* RFI Form Fields */}
-                {taskData.creator.badge === 'RFI' && taskData.formFields && (
+                {displayTask.type === 'RFI' && displayTask.formFields && (
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Subject</label>
-                      <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.subject}</p>
+                      <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.subject}</p>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Discipline</label>
-                      <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.discipline}</p>
+                      <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.discipline}</p>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Question</label>
-                      <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{taskData.formFields.question}</p>
+                      <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.question}</p>
                     </div>
+                    {displayTask.formFields.description && (
+                         <div>
+                            <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
+                            <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
+                         </div>
+                    )}
                   </div>
                 )}
 
                 {/* SI Form Fields */}
-                {taskData.creator.badge === 'SI' && taskData.formFields && (
+                {displayTask.type === 'SI' && displayTask.formFields && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Discipline</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.discipline}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.discipline}</p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Location</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.location}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.location}</p>
                       </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Instruction</label>
-                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1">{taskData.formFields.instruction}</p>
+                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1">{displayTask.formFields.instruction}</p>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Urgency</label>
-                        <Badge className={`mt-1 ${taskData.formFields.urgency === 'high' ? 'bg-red-50 text-red-600 border-red-200' : taskData.formFields.urgency === 'medium' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-green-50 text-green-600 border-green-200'}`}>
-                          {taskData.formFields.urgency}
+                        <Badge className={`mt-1 ${displayTask.formFields.urgency === 'High' ? 'bg-red-50 text-red-600 border-red-200' : displayTask.formFields.urgency === 'Medium' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-green-50 text-green-600 border-green-200'}`}>
+                          {displayTask.formFields.urgency || 'Medium'}
                         </Badge>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">VO Reference</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.voReference || 'N/A'}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.voReference || 'N/A'}</p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Cost Impact</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.costImpact}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.costImpact}</p>
                       </div>
                     </div>
+                     {displayTask.formFields.description && (
+                         <div>
+                            <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
+                            <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
+                         </div>
+                    )}
                   </div>
                 )}
 
                 {/* VO Form Fields */}
-                {taskData.creator.badge === 'VO' && taskData.formFields && (
+                {displayTask.type === 'VO' && displayTask.formFields && (
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Discipline</label>
-                      <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.discipline}</p>
+                      <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.discipline}</p>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Description</label>
-                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1">{taskData.formFields.description}</p>
+                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1 whitespace-pre-wrap">{displayTask.formFields.description}</p>
                     </div>
+                    
+                    {displayTask.formFields.items && (
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide mb-2 block">Line Items</label>
                       <div className="border rounded-lg overflow-hidden">
@@ -586,7 +665,7 @@ export default function TaskDetails() {
                             </tr>
                           </thead>
                           <tbody>
-                            {taskData.formFields.items?.map((item, idx) => (
+                            {displayTask.formFields.items?.map((item: any, idx: number) => (
                               <tr key={idx} className="border-b last:border-0">
                                 <td className="text-sm text-[#1B1C1F] px-4 py-3">{item.description}</td>
                                 <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">{item.qty}</td>
@@ -597,102 +676,109 @@ export default function TaskDetails() {
                             <tr className="bg-[#F9FAFB] font-medium">
                               <td colSpan={3} className="text-sm text-[#1B1C1F] px-4 py-3 text-right">Total Estimated Cost:</td>
                               <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">
-                                R {taskData.formFields.items?.reduce((sum, item) => sum + (item.qty * item.rate), 0).toLocaleString()}
+                                R {displayTask.formFields.items?.reduce((sum: number, item: any) => sum + (item.qty * item.rate), 0).toLocaleString()}
                               </td>
                             </tr>
                           </tbody>
                         </table>
                       </div>
                     </div>
+                    )}
                   </div>
                 )}
 
                 {/* DC Form Fields */}
-                {taskData.creator.badge === 'DC' && taskData.formFields && (
+                {displayTask.type === 'DC' && displayTask.formFields && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Cause Category</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.causeCategory}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.causeCategory}</p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Cost Impact</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1 font-medium">{taskData.formFields.costImpact}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1 font-medium">{displayTask.formFields.costImpact}</p>
                       </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Description</label>
-                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1">{taskData.formFields.description}</p>
+                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1 whitespace-pre-wrap">{displayTask.formFields.description}</p>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Requested Extension</label>
-                      <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.requestedExtension} days</p>
+                      <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.requestedExtension} days</p>
                     </div>
                   </div>
                 )}
 
                 {/* CPI Form Fields */}
-                {taskData.creator.badge === 'CPI' && taskData.formFields && (
+                {displayTask.type === 'CPI' && displayTask.formFields && (
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Discipline</label>
-                      <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.discipline}</p>
+                      <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.discipline}</p>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Description</label>
-                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1">{taskData.formFields.description}</p>
+                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1 whitespace-pre-wrap">{displayTask.formFields.description}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Proposed Cost</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1 font-medium">{taskData.formFields.proposedCost}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1 font-medium">{displayTask.formFields.proposedCost}</p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Impact on Schedule</label>
-                        <p className="text-sm text-red-600 mt-1">{taskData.formFields.impactOnSchedule}</p>
+                        <p className="text-sm text-red-600 mt-1">{displayTask.formFields.impactOnSchedule}</p>
                       </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Justification</label>
-                      <p className="text-sm text-[#4B5563] mt-1">{taskData.formFields.justification}</p>
+                      <p className="text-sm text-[#4B5563] mt-1">{displayTask.formFields.justification}</p>
                     </div>
                   </div>
                 )}
 
                 {/* GI Form Fields */}
-                {taskData.creator.badge === 'GI' && taskData.formFields && (
+                {displayTask.type === 'GI' && displayTask.formFields && (
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Discipline</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.discipline}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.discipline}</p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Effective Date</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.effectiveDate}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.effectiveDate}</p>
                       </div>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Instruction</label>
-                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1">{taskData.formFields.instruction}</p>
+                      <p className="text-sm text-[#4B5563] leading-relaxed mt-1">{displayTask.formFields.instruction}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Applicable To</label>
-                        <p className="text-sm text-[#1B1C1F] mt-1">{taskData.formFields.applicableTo}</p>
+                        <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.applicableTo}</p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Compliance</label>
                         <Badge className="mt-1 bg-purple-50 text-purple-600 border-purple-200">
-                          {taskData.formFields.complianceRequired}
+                          {displayTask.formFields.complianceRequired}
                         </Badge>
                       </div>
                     </div>
+                     {displayTask.formFields.description && (
+                         <div>
+                            <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
+                            <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
+                         </div>
+                    )}
                   </div>
                 )}
 
                 <div className="flex gap-2 mt-4 pt-4 border-t">
-                  {taskData.question.tags.map((tag, i) => (
+                  {displayTask.question.tags && displayTask.question.tags.map((tag: any, i: any) => (
                     <Badge
                       key={i}
                       variant="secondary"
@@ -773,31 +859,28 @@ export default function TaskDetails() {
               <Card className="p-[25px] shadow-none pt-[22px] bg-white rounded-[14px] border-[#E7E9EB]">
                 <h2 className="text-base  text-[#0E1C2E] mb-5">Action Requests</h2>
                 <div className="space-y-3">
-                  {taskData.actionRequests.map(request => (
+                  {displayTask.actionRequests && displayTask.actionRequests.map((request: any) => (
                     <div key={request.id} className="flex items-start gap-4 p-3 bg-white border rounded-[10px]">
                       <Avatar className="h-10 w-10">
                         <AvatarFallback className="bg-gray-200 text-gray-600 text-xs">DC</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 text-xs">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs  text-black">{request.person}</span>
+                          <span className="text-xs  text-black">{request.recipient}</span>
                         </div>
                         <p className="text-xs text-gray-500 mb-1">{request.role}</p>
                         <p className="text-xs text-black">{request.task}</p>
-                        <p className="text-xs text-gray-500 mt-1">Due {request.dueDate}</p>
+                        <p className="text-xs text-gray-500 mt-1">Due {new Date(request.date).toLocaleDateString()}</p>
                       </div>
                       <Badge className="bg-[#FFF7ED] text-[#F97316] py-1.5 px-3 hover:bg-orange-50 border-[#FED7AA] text-xs">
-                        {request.status}
+                        Pending
                       </Badge>
                     </div>
                   ))}
 
-                  {/* <button className="w-full flex items-center justify-center gap-2 p-3  border border-[#D1D5DC] rounded-[8px] hover:border-gray-300 hover:bg-gray-50 transition-colors">
-                    <Plus className="h-4 w-4 text-black" />
-                    <span className="text-sm text-black">Request Info</span>
-                  </button> */}
-                  <RequestInfoDialog wFull={true} />
+                  <RequestInfoDialog wFull={true} onSubmit={handleRequestInfoSubmit} />
                 </div>
+
               </Card>
             </div>
 
@@ -813,7 +896,7 @@ export default function TaskDetails() {
                       <div
                         className="h-[2px] bg-[#8081F6] transition-all duration-500"
                         style={{
-                          width: `${(currentStageIndex / (taskData.timeline.stages.length - 1)) * 110}%`,
+                          width: `${(currentStageIndex / (displayTask.timeline.stages.length - 1)) * 110}%`,
                         }}
                       />
                     </div>
@@ -821,7 +904,7 @@ export default function TaskDetails() {
                     {/* Steps */}
                     <div className="flex justify-between relative z-10">
                       <div className="relative flex items-center justify-between w-full">
-                        {taskData.timeline.stages.map((stage, i) => (
+                        {displayTask.timeline.stages.map((stage: any, i: any) => (
                           <div key={stage} className="relative flex flex-col items-center flex-1">
                             {/* Dot */}
                             <div
@@ -830,7 +913,7 @@ export default function TaskDetails() {
                             />
                             {/* Label */}
                             <span
-                              className={`text-sm mt-3 text-[#6B7280] w-full ${i === 0 ? 'text-center' : i === taskData.timeline.stages.length - 1 ? 'text-center' : 'text-center'
+                              className={`text-sm mt-3 text-[#6B7280] w-full ${i === 0 ? 'text-center' : i === displayTask.timeline.stages.length - 1 ? 'text-center' : 'text-center'
                                 }`}
                             >
                               {stage}
@@ -849,11 +932,11 @@ export default function TaskDetails() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[#1B1C1F]">Reply due</span>
-                    <span className="text-sm  text-[#8081F6]">{taskData.deadlines.replyDue}</span>
+                    <span className="text-sm  text-[#8081F6]">{displayTask.deadlines.replyDue}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-[#6B7280]">Contract window</span>
-                    <span className="text-sm text-[#6B7280]">{taskData.deadlines.contractWindow}</span>
+                    <span className="text-sm text-[#6B7280]">{displayTask.deadlines.contractWindow}</span>
                   </div>
                 </div>
               </Card>
@@ -864,23 +947,23 @@ export default function TaskDetails() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm ">Time impact</span>
-                    <span className="text-sm  text-[#1B1C1F]">{taskData.impact.time}</span>
+                    <span className="text-sm  text-[#1B1C1F]">{displayTask.impact.time}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm ">Cost impact</span>
-                    <span className="text-sm  text-[#1B1C1F]">{taskData.impact.cost}</span>
+                    <span className="text-sm  text-[#1B1C1F]">{displayTask.impact.cost}</span>
                   </div>
                   <div>
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm ">Risk score</span>
                       <span className="text-sm  text-[#DC2626]">
-                        {taskData.impact.riskScore}/{taskData.impact.riskMax}
+                        {displayTask.impact.riskScore}/{displayTask.impact.riskMax}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-[#8081F6] rounded-full"
-                        style={{ width: `${(taskData.impact.riskScore / taskData.impact.riskMax) * 100}%` }}
+                        style={{ width: `${(displayTask.impact.riskScore / displayTask.impact.riskMax) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -891,7 +974,7 @@ export default function TaskDetails() {
               <Card className="pt-4 bg-white shadow-none border-0">
                 <h3 className="text-xs  text-[#6B7280] uppercase tracking-wide mb-3">Linked</h3>
                 <div className="space-y-2">
-                  {taskData.linked.map((item, i) => (
+                  {displayTask.linked.map((item: any, i: any) => (
                     <div
                       key={i}
                       className="flex items-start gap-3 px-[13px] py-[15px] border border-[#E7E9EB] rounded-[10px] hover:bg-white  transition-colors cursor-pointer"
@@ -917,7 +1000,7 @@ export default function TaskDetails() {
               <Card className="pt-4 bg-white shadow-none border-0">
                 <h3 className="text-xs  text-[#6B7280] uppercase tracking-wide mb-3">Audit</h3>
                 <div className="space-y-3">
-                  {taskData.audit.map((entry, i) => (
+                  {displayTask.audit.map((entry: any, i: any) => (
                     <div
                       key={i}
                       className={`p-3 border border-[#E7E9EB] rounded-[10px] ${entry.isAI ? 'bg-indigo-50 border border-[#8081F6B0] border-indigo-200' : 'bg-white'

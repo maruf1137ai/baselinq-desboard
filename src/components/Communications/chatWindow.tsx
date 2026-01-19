@@ -1,34 +1,25 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send } from "lucide-react";
+import { useUpdateTask } from "@/supabse/hook/useTask";
 
-const ChatWindow = () => {
+const ChatWindow = ({ task }: { task: any }) => {
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: "user",
-      content:
-        "We need clarification on the structural requirements for the basement level. The current drawings show conflicting information regarding the foundation depth.",
-      files: [
-        { name: "foundation-drawings.pdf", type: "pdf" },
-        { name: "site-survey.dwg", type: "dwg" },
-      ],
-      sender: "Sarah Chen",
-      timestamp: "Today 9:24 AM",
-    },
-    {
-      id: 2,
-      type: "ai",
-      content:
-        "I've analyzed the uploaded drawings and identified the conflicts. The architectural plans show a foundation depth of 8 feet, while the structural drawings indicate 10 feet. Based on the soil report and local building codes, I recommend clarifying this with the structural engineer.",
-      timestamp: "Today 9:25 AM",
-    },
-  ]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const { mutateAsync: updateTask } = useUpdateTask();
 
   const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const [attachedFiles, setAttachedFiles] = useState([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
+
+  // Sync messages with selected task
+  useEffect(() => {
+    if (task?.chat) {
+      setMessages(task.chat);
+    } else {
+      setMessages([]);
+    }
+  }, [task]);
 
   // Auto-scroll to bottom when new messages are added
   const scrollToBottom = () => {
@@ -39,67 +30,49 @@ const ChatWindow = () => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (message.trim() === "" && attachedFiles.length === 0) return;
 
     // Add user message
     const newUserMessage = {
-      id: messages.length + 1,
+      id: Date.now(), // Simple ID generation
       type: "user",
       content: message.trim(),
       files: [...attachedFiles],
-      sender: "You",
+      sender: "You", // In a real app, use logged in user's name
       timestamp: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       }),
     };
 
-    setMessages((prev) => [...prev, newUserMessage]);
+    const newChatHistory = [...(messages || []), newUserMessage];
+    setMessages(newChatHistory);
     setMessage("");
     setAttachedFiles([]);
-
-    // Simulate AI response after a delay
-    if (message.trim() !== "") {
-      setIsTyping(true);
-      setTimeout(() => {
-        const aiResponse = {
-          id: messages.length + 2,
-          type: "ai",
-          content: generateAIResponse(message),
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setMessages((prev) => [...prev, aiResponse]);
-        setIsTyping(false);
-      }, 1500);
+    
+    if (task?.id) {
+        try {
+            await updateTask({ id: task.id, chat: newChatHistory });
+        } catch (error) {
+            console.error("Failed to update chat", error);
+        }
     }
+
+    // Simulate AI response logic removed to focus on persistence, 
+    // or can be re-added if AI integration exists.
   };
 
-  const generateAIResponse = (userMessage) => {
-    const responses = [
-      "I understand your concern about the foundation requirements. Based on the building codes and soil analysis, I recommend consulting with the structural engineer to resolve the depth discrepancy.",
-      "Thank you for providing the additional details. I've reviewed the documents and suggest coordinating with the project architect to align the foundation specifications.",
-      "I've identified several potential solutions for the foundation conflict. Would you like me to outline the recommended approach based on structural best practices?",
-      "Based on my analysis of similar projects, the foundation depth should be determined by the soil bearing capacity. I recommend conducting additional soil testing if needed.",
-      "I can help you draft a formal clarification request to the engineering team regarding the foundation depth discrepancy.",
-    ];
-
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
-
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: any) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleFileAttach = (e) => {
-    const files = Array.from(e.target.files);
-    const newFiles = files.map((file) => ({
+  const handleFileAttach = (e: any) => {
+    const files = Array.from(e.target.files || []) as any[];
+    const newFiles = files.map((file: any) => ({
       name: file.name,
       type: file.name.split(".").pop(),
       file: file,
@@ -107,7 +80,7 @@ const ChatWindow = () => {
     setAttachedFiles((prev) => [...prev, ...newFiles]);
   };
 
-  const removeAttachedFile = (index) => {
+  const removeAttachedFile = (index: number) => {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -115,8 +88,8 @@ const ChatWindow = () => {
     fileInputRef.current?.click();
   };
 
-  const FileIcon = ({ type }) => {
-    const getFileColor = (fileType) => {
+  const FileIcon = ({ type }: { type: string }) => {
+    const getFileColor = (fileType: string) => {
       switch (fileType) {
         case "pdf":
           return "#FF4444";
@@ -149,17 +122,27 @@ const ChatWindow = () => {
     );
   };
 
+  if (!task) {
+    return (
+      <div className="h-full flex items-center justify-center text-gray-500">
+        Select a task to view conversation
+      </div>
+    );
+  }
+
+  const displayId = task.type ? `${task.type}-${task.id.slice(0, 4)}` : `Task-${task.id.slice(0, 4)}`;
+
   return (
     <div>
       <div className="nav py-3 px-6 border-b border-r border-[#DEDEDE] flex items-center justify-between gap-2 flex-wrap">
         <div>
-          <div className="title text-base text-[#101828]">RFI #2024-001</div>
+          <div className="title text-base text-[#101828]">{displayId}</div>
           <p className="text text-sm text-[#6A7282] mt-1">
-            Foundation Requirements Clarification
+            {task.title}
           </p>
         </div>
         <div className="date text-xs py-2 px-3 bg-[#FFF7ED] border border-[#FED7AA] text-[#F97316] rounded-full">
-          Due: 2025-01-07
+          Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No Date'}
         </div>
       </div>
 

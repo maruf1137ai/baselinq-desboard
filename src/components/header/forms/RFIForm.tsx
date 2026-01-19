@@ -73,28 +73,29 @@ export default function RFIForm({ setOpen }: any) {
       return;
     }
 
+    const projectId = localStorage.getItem("selectedProjectId");
+    if (!projectId) {
+      toast.error("No project selected. Please select a project from the sidebar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const files = await uploadAllFiles();
 
-      const extraFields = [
-        {
-          discipline,
-          question
-        }
-      ];
-
       const payload = {
+        project_id: projectId,
         title: subject,
-        category: "RFI",
-        status: "todo",
-        description: extraFields,
-        attachment: files,
+        type: "RFI",
+        status: "Todo",
+        priority: "Medium",
+        Discipline: discipline,
+        Question: question,
+        description: files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : "",
       };
 
       await mutateAsync(payload);
-      console.log(payload);
     } catch (err) {
       console.error(err);
       toast.error("Error creating RFI");
