@@ -90,27 +90,29 @@ export default function GIForm({ setOpen }: any) {
       return;
     }
 
+    const projectId = localStorage.getItem("selectedProjectId");
+    if (!projectId) {
+      toast.error("No project selected. Please select a project from the sidebar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const files = await uploadAllFiles();
 
-      // Construct the payload. 
-      // Store extra fields as JSON in description
-      const extraFields = [{
-        discipline: formData.discipline,
-        instruction: formData.instruction,
-        effectiveDate: formData.effectiveDate,
-        applicableTo: formData.applicableTo,
-        complianceRequired: formData.complianceRequired
-      }]
-
       const payload = {
+        project_id: projectId,
         title: formData.title,
-        category: "GI",
-        status: "todo",
-        description: extraFields,
-        attachment: files,
+        type: "GI",
+        status: "Todo",
+        priority: "Medium",
+        Discipline: formData.discipline,
+        Instruction: formData.instruction,
+        Effective_Date: formData.effectiveDate || null,
+        Applicable_To: formData.applicableTo,
+        Compliance: formData.complianceRequired,
+        description: files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : "",
       };
 
       await mutateAsync(payload);

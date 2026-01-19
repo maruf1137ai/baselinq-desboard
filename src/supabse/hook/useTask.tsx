@@ -1,18 +1,29 @@
-import { useQuery } from '@tanstack/react-query';
-import { GetTask } from '../api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { GetTask, modifyTask } from '../api';
 
-const useTask = () => {
+const useTask = (projectId?: string) => {
   const {
-    data = [],
+    data: queryData,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['task'],
-    queryFn: GetTask,
+    queryKey: ['task', projectId],
+    queryFn: () => GetTask(projectId),
+    enabled: !!projectId,
   });
 
-  return { data, isLoading, error, refetch };
+  return { data: queryData?.data || [], isLoading, error, refetch };
+};
+
+export const useUpdateTask = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (newTask: any) => modifyTask({ newTask }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task'] });
+    },
+  });
 };
 
 export default useTask;

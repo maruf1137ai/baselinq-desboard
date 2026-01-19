@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { DndContext, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -9,118 +9,10 @@ import { MessageSquare, Paperclip, Eye, GitBranch, Plus, Link2 } from 'lucide-re
 import { DashboardLayout } from '@/components/DashboardLayout';
 import Spark from '@/components/icons/Spark';
 import { useNavigate } from 'react-router-dom';
+import useTask, { useUpdateTask } from '@/supabse/hook/useTask';
+import { toast } from 'sonner';
 
-const initialTasks = {
-  todo: [
-    {
-      id: 'RFI-001',
-      title: 'Review foundation specs with structural engineer',
-      date: 'Jan 07, 2026',
-      assignee: { name: 'RF', color: 'bg-orange-100 text-orange-600' },
-      tag: '#rfi-001',
-      // status: 'Overdue',
-      // warning: 'Predicted delay >21 days',
-      stats: { comments: 8, attachments: 3, views: 24, branches: 2 },
-    },
-    {
-      id: 'SI-001',
-      title: 'Submit fire safety certificate application',
-      date: 'Jan 08, 2026',
-      assignee: { name: 'SI', color: 'bg-blue-100 text-blue-600' },
-      tag: '#si-001',
-      status: 'Waiting on info',
-      stats: { comments: 3, attachments: 1, views: 12, branches: 1 },
-    },
-    {
-      id: 'VO-001',
-      title: 'Approve material variation for facade panels',
-      date: 'Jan 09, 2026',
-      assignee: { name: 'VO', color: 'bg-purple-100 text-purple-600' },
-      tag: '#vo-001',
-      stats: { comments: 5, attachments: 7, views: 18, branches: 3 },
-    },
-    {
-      id: 'DC-001',
-      title: 'Facade Panel Material Variation Approval Delay Claim',
-      date: 'Jan 12, 2026',
-      assignee: { name: 'DC', color: 'bg-purple-100 text-purple-600' },
-      tag: '#dc-001',
-      stats: { comments: 5, attachments: 7, views: 18, branches: 3 },
-    },
-    {
-      id: 'CPI-001',
-      title: 'Cost Proposal for facade panels',
-      date: 'Jan 12, 2026',
-      assignee: { name: 'CPI', color: 'bg-purple-100 text-purple-600' },
-      tag: '#cpi-001',
-      stats: { comments: 5, attachments: 7, views: 18, branches: 3 },
-    },
-    {
-      id: 'GI-001',
-      title: 'GI for facade panels',
-      date: 'Jan 12, 2026',
-      assignee: { name: 'GI', color: 'bg-purple-100 text-purple-600' },
-      tag: '#gi-001',
-      stats: { comments: 5, attachments: 7, views: 18, branches: 3 },
-    },
-  ],
-  inReview: [
-    // {
-    //   id: 'TSK-042',
-    //   title: 'HVAC system design approval',
-    //   date: 'Oct 25, 2025',
-    //   assignee: { name: 'RF', color: 'bg-orange-100 text-orange-600' },
-    //   tag: '#rfi-011',
-    //   status: 'Under review',
-    //   stats: { comments: 6, attachments: 4, views: 19, branches: 2 },
-    // },
-    // {
-    //   id: 'TSK-044',
-    //   title: 'Cost breakdown for electrical installation',
-    //   date: 'Oct 30, 2025',
-    //   assignee: { name: 'SI', color: 'bg-blue-100 text-blue-600' },
-    //   tag: '#finance-03',
-    //   stats: { comments: 9, attachments: 5, views: 31, branches: 4 },
-    // },
-    // {
-    //   id: 'TSK-046',
-    //   title: 'Review parking layout modifications',
-    //   date: 'Nov 1, 2025',
-    //   assignee: { name: 'VO', color: 'bg-purple-100 text-purple-600' },
-    //   tag: '#vo-007',
-    //   stats: { comments: 4, attachments: 6, views: 22, branches: 1 },
-    // },
-  ],
-  done: [
-    // {
-    //   id: 'TSK-042-done',
-    //   title: 'HVAC system design approval',
-    //   date: 'Oct 25, 2025',
-    //   assignee: { name: 'RF', color: 'bg-orange-100 text-orange-600' },
-    //   tag: '#rfi-011',
-    //   status: 'Under review',
-    //   stats: { comments: 6, attachments: 4, views: 19, branches: 2 },
-    // },
-    // {
-    //   id: 'TSK-044-done',
-    //   title: 'Cost breakdown for electrical installation',
-    //   date: 'Oct 30, 2025',
-    //   assignee: { name: 'SI', color: 'bg-blue-100 text-blue-600' },
-    //   tag: '#finance-03',
-    //   stats: { comments: 9, attachments: 5, views: 31, branches: 4 },
-    // },
-    // {
-    //   id: 'TSK-046-done',
-    //   title: 'Review parking layout modifications',
-    //   date: 'Nov 1, 2025',
-    //   assignee: { name: 'VO', color: 'bg-purple-100 text-purple-600' },
-    //   tag: '#vo-007',
-    //   stats: { comments: 4, attachments: 6, views: 22, branches: 1 },
-    // },
-  ],
-};
-
-function TaskCard({ task, isDragging }) {
+function TaskCard({ task, isDragging }: any) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
   const navigate = useNavigate();
 
@@ -130,6 +22,12 @@ function TaskCard({ task, isDragging }) {
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const formattedDate = task.due_date 
+    ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : (task.created_at ? new Date(task.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date');
+  
+  const displayId = `#${task.type || 'TSK'}-${task.id.slice(0, 4)}`;
+
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="mb-3">
       <Card
@@ -138,23 +36,23 @@ function TaskCard({ task, isDragging }) {
       >
         <div className="space-y-4">
           <h3 className="text-sm text-[#1A1A1A] leading-tight">
-            {task.id} · {task.title}
+            {displayId} · {task.title}
           </h3>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#717784]">{task.date}</span>
+            <span className="text-xs text-[#717784]">{formattedDate}</span>
             <span className="text-[#E6E8EB]">•</span>
             <Avatar className="h-6 w-6">
-              <AvatarFallback className={`text-xs ${task.assignee.color}`}>A</AvatarFallback>
+              <AvatarFallback className={`text-xs bg-orange-100 text-orange-600`}>UA</AvatarFallback>
             </Avatar>
             <span className="text-[#E6E8EB]">•</span>
             <Badge variant="secondary" className="text-[11px] bg-orange-50 border border-[#FED7AA] text-orange-600 hover:bg-orange-50">
-              {task.assignee.name}
+              Unassigned
             </Badge>
           </div>
 
           <div>
-            <span className="text-xs border-b border-dotted border-[#717784] text-[#717784]">{task.tag}</span>
+            <span className="text-xs border-b border-dotted border-[#717784] text-[#717784]">{task.type}</span>
           </div>
 
           {task.status && (
@@ -174,19 +72,19 @@ function TaskCard({ task, isDragging }) {
             <div className="flex pt-[15px] border-t border-[#E6E8EB] mt-3 items-center gap-4 text-[#9CA3AF] text-xs">
               <div className="flex items-center gap-1">
                 <MessageSquare className="h-3.5 w-3.5" />
-                <span>{task.stats.comments}</span>
+                <span>0</span>
               </div>
               <div className="flex items-center gap-1">
                 <Paperclip className="h-3.5 w-3.5" />
-                <span>{task.stats.attachments}</span>
+                <span>0</span>
               </div>
               <div className="flex items-center gap-1">
                 <Eye className="h-3.5 w-3.5" />
-                <span>{task.stats.views}</span>
+                <span>0</span>
               </div>
               <div className="flex items-center gap-1">
                 <Link2 className="h-3.5 w-3.5" />
-                <span>{task.stats.branches}</span>
+                <span>0</span>
               </div>
             </div>
           </div>
@@ -196,7 +94,7 @@ function TaskCard({ task, isDragging }) {
   );
 }
 
-function Column({ id, title, count, tasks }) {
+function Column({ id, title, count, tasks }: any) {
   const { setNodeRef } = useSortable({ id });
 
   return (
@@ -214,9 +112,9 @@ function Column({ id, title, count, tasks }) {
           </button>
         </div>
 
-        <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={tasks.map((t: any) => t.id)} strategy={verticalListSortingStrategy}>
           <div ref={setNodeRef} className="space-y-3">
-            {tasks.map(task => (
+            {tasks.map((task: any) => (
               <TaskCard key={task.id} task={task} />
             ))}
           </div>
@@ -227,9 +125,39 @@ function Column({ id, title, count, tasks }) {
 }
 
 export default function Task() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const [projectId, setProjectId] = useState(() => localStorage.getItem("selectedProjectId") || undefined);
+  const { data: serverTasks = [], isLoading } = useTask(projectId);
+  const { mutateAsync: updateTask } = useUpdateTask();
+
+  /* State */
+  const [tasks, setTasks] = useState<{ todo: any[], inReview: any[], done: any[] }>({
+    todo: [],
+    inReview: [],
+    done: [],
+  });
+  
   const [activeId, setActiveId] = useState(null);
+  const [activeStartContainer, setActiveStartContainer] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleProjectChange = () => {
+      setProjectId(localStorage.getItem("selectedProjectId") || undefined);
+    };
+
+    window.addEventListener("project-change", handleProjectChange);
+    return () => window.removeEventListener("project-change", handleProjectChange);
+  }, []);
+
+  useEffect(() => {
+    if (serverTasks) {
+      setTasks({
+        todo: serverTasks.filter((t: any) => !t.status || t.status === 'Todo'),
+        inReview: serverTasks.filter((t: any) => t.status === 'In Review' || t.status === 'inReview'),
+        done: serverTasks.filter((t: any) => t.status === 'Done'),
+      });
+    }
+  }, [serverTasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -243,16 +171,18 @@ export default function Task() {
     })
   );
 
-  const findContainer = id => {
+  const findContainer = (id: any) => {
     if (id in tasks) return id;
-    return Object.keys(tasks).find(key => tasks[key].some(task => task.id === id));
+    return Object.keys(tasks).find(key => (tasks as any)[key].some((task: any) => task.id === id));
   };
 
-  const handleDragStart = event => {
-    setActiveId(event.active.id);
+  const handleDragStart = (event: any) => {
+    const { active } = event;
+    setActiveId(active.id);
+    setActiveStartContainer(findContainer(active.id));
   };
 
-  const handleDragOver = event => {
+  const handleDragOver = (event: any) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -264,10 +194,10 @@ export default function Task() {
     }
 
     setTasks(prev => {
-      const activeItems = prev[activeContainer];
-      const overItems = prev[overContainer];
-      const activeIndex = activeItems.findIndex(t => t.id === active.id);
-      const overIndex = overItems.findIndex(t => t.id === over.id);
+      const activeItems = (prev as any)[activeContainer];
+      const overItems = (prev as any)[overContainer];
+      const activeIndex = activeItems.findIndex((t: any) => t.id === active.id);
+      const overIndex = overItems.findIndex((t: any) => t.id === over.id);
 
       let newIndex;
       if (over.id in prev) {
@@ -281,60 +211,91 @@ export default function Task() {
 
       return {
         ...prev,
-        [activeContainer]: prev[activeContainer].filter(t => t.id !== active.id),
-        [overContainer]: [...prev[overContainer].slice(0, newIndex), activeItems[activeIndex], ...prev[overContainer].slice(newIndex)],
+        [activeContainer]: (prev as any)[activeContainer].filter((t: any) => t.id !== active.id),
+        [overContainer]: [...(prev as any)[overContainer].slice(0, newIndex), activeItems[activeIndex], ...(prev as any)[overContainer].slice(newIndex)],
       };
     });
   };
 
-  const handleDragEnd = event => {
+  const handleDragEnd = async (event: any) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over) {
+      setActiveId(null);
+      setActiveStartContainer(null);
+      return;
+    }
 
     const activeContainer = findContainer(active.id);
     const overContainer = findContainer(over.id);
 
     if (!activeContainer || !overContainer) {
       setActiveId(null);
+      setActiveStartContainer(null);
       return;
     }
 
-    const activeIndex = tasks[activeContainer].findIndex(t => t.id === active.id);
-    const overIndex = tasks[overContainer].findIndex(t => t.id === over.id);
+    const activeIndex = (tasks as any)[activeContainer].findIndex((t: any) => t.id === active.id);
+    const overIndex = (tasks as any)[overContainer].findIndex((t: any) => t.id === over.id);
 
-    if (activeIndex !== overIndex) {
+    // If moved to a different container compared to start
+    if (activeStartContainer !== overContainer) {
+        let newStatus = 'Todo';
+        if (overContainer === 'inReview') newStatus = 'In Review';
+        if (overContainer === 'done') newStatus = 'Done';
+        
+        try {
+           await updateTask({ id: active.id, status: newStatus });
+           toast.success(`Task moved to ${newStatus}`);
+        } catch (error) {
+           toast.error("Failed to update status");
+        }
+    }
+
+    // Reorder validation
+    if (activeIndex !== overIndex || activeContainer !== overContainer) {
       setTasks(prev => ({
         ...prev,
-        [overContainer]: arrayMove(prev[overContainer], activeIndex, overIndex),
+        [overContainer]: arrayMove((prev as any)[overContainer], activeIndex, overIndex),
       }));
     }
 
     setActiveId(null);
+    setActiveStartContainer(null);
   };
+
+  const allListFlat = [...tasks.todo, ...tasks.inReview, ...tasks.done];
 
   return (
     <DashboardLayout>
-      <div className="w-full h-screen bg-white overflow-x-auto">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-6 min-w-min">
-            <Column id="todo" title="To Do" count={tasks.todo.length} tasks={tasks.todo} />
-            <Column id="inReview" title="In Review" count={tasks.inReview.length} tasks={tasks.inReview} />
-            <Column id="done" title="Done" count={tasks.done.length} tasks={tasks.done} />
-          </div>
+       {projectId ? (
+        isLoading ? (
+            <div className="p-8 text-center text-gray-500">Loading tasks...</div>
+        ) : (
+        <div className="w-full h-screen bg-white overflow-x-auto">
+            <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            >
+            <div className="flex gap-6 min-w-min">
+                <Column id="todo" title="To Do" count={tasks.todo.length} tasks={tasks.todo} />
+                <Column id="inReview" title="In Review" count={tasks.inReview.length} tasks={tasks.inReview} />
+                <Column id="done" title="Done" count={tasks.done.length} tasks={tasks.done} />
+            </div>
 
-          <DragOverlay>
-            {activeId ? (
-              <TaskCard task={[...tasks.todo, ...tasks.inReview, ...tasks.done].find(t => t.id === activeId)} isDragging />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
+            <DragOverlay>
+                {activeId ? (
+                <TaskCard task={allListFlat.find((t: any) => t.id === activeId)} isDragging />
+                ) : null}
+            </DragOverlay>
+            </DndContext>
+        </div>
+        )
+       ) : (
+           <div className="p-8 text-center text-gray-500">Please select a project from the sidebar</div>
+       )}
     </DashboardLayout>
   );
 }
