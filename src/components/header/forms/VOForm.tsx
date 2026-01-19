@@ -91,25 +91,39 @@ export default function VOForm({ setOpen }: any) {
       return;
     }
 
+    const projectId = localStorage.getItem("selectedProjectId");
+    if (!projectId) {
+      toast.error("No project selected. Please select a project from the sidebar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const files = await uploadAllFiles();
 
-      // Construct description with line items details
-      const extraFields = [{
-        discipline,
-        description,
-        items,
-        totalCost: items.reduce((acc, item) => acc + (item.qty || 0) * (item.rate || 0), 0)
-      }];
+      const totalCostVal = items.reduce((acc, item) => acc + (item.qty || 0) * (item.rate || 0), 0);
+      const itemsDetails = items.map(i => `- ${i.description} (x${i.qty}) @ R${i.rate} = R${((i.qty||0)*(i.rate||0)).toFixed(2)}`).join("\n");
+      
+      const fullDescription = `
+${description}
+
+Line Items:
+${itemsDetails}
+Total: R${totalCostVal.toFixed(2)}
+
+${files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : ""}
+      `.trim();
 
       const payload = {
+        project_id: projectId,
         title,
-        category: "VO",
-        status: "todo",
-        description: extraFields,
-        attachment: files,
+        type: "VO",
+        status: "Todo",
+        priority: "Medium",
+        Discipline: discipline,
+        Cost: `R${totalCostVal.toFixed(2)}`,
+        description: fullDescription,
       };
 
       await mutateAsync(payload);

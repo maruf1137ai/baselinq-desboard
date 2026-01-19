@@ -32,76 +32,23 @@ import NewDoc from "../icons/NewDoc";
 import InviteMember from "../icons/InviteMember";
 import { Input } from "../ui/input";
 
-interface Conversation {
-  id: string;
-  title: string;
-  preview: string;
-}
-
-const data = [
-  {
-    id: "RFI-001",
-    title: "Review foundation specs with structural engineer",
-    due: "Jan 07, 2026",
-    count: 2,
-  },
-  {
-    id: "SI-001",
-    title: "Submit fire safety certificate application",
-    due: "Jan 08, 2026",
-    count: 1,
-  },
-  {
-    id: "VO-001",
-    title: "Approve material variation for facade panels",
-    due: "Jan 09, 2026",
-    count: 0,
-  },
-  {
-    id: "DC-001",
-    title: "Approve material variation for facade panels",
-    due: "Jan 12, 2026",
-    count: 0,
-  },
-  {
-    id: "CPI-001",
-    title: "Cost Proposal for facade panels",
-    due: "2025-01-12",
-    count: 0,
-  },
-  {
-    id: "GI-001",
-    title: "GI for facade panels",
-    due: "2025-01-12",
-    count: 0,
-  },
-];
-
 interface ChatSidebarProps {
   onNewChat: () => void;
+  tasks: any[];
+  selectedTask: any;
+  onSelectTask: (task: any) => void;
 }
 
-export function ChatSidebar({ onNewChat }: ChatSidebarProps) {
-  const [activeChat, setActiveChat] = useState("2");
+export function ChatSidebar({ onNewChat, tasks, selectedTask, onSelectTask }: ChatSidebarProps) {
   const [open, setOpen] = useState(true);
-
 
   return (
     <div
       className={`border-r h-full flex flex-col border-[#DEDEDE] transition-all justify-between max-h-[calc(100vh-65px)] overflow-y-auto ${open ? "w-64" : "w-16"
         }`}>
       <div className=" p-3">
-        {/* <div
-          className={`flex items-center ${
-            open ? "justify-between" : "justify-center"
-          } gap-2`}>
-          <button
-            className="w-[50px] rounded-lg flex items-center justify-center h-10 bg-[#F9F9F9] shrink-0"
-            onClick={setOpen.bind(null, !open)}>
-            <SideBar />
-          </button>
-        </div> */}
-
+        {/* Toggle button commented out in original, keeping it that way or as is */}
+        
         {open && (
           <>
             <div className="flex items-center gap-1.5">
@@ -121,12 +68,18 @@ export function ChatSidebar({ onNewChat }: ChatSidebarProps) {
               </button>
             </div>
             <div className="mt-5 flex flex-col gap-2">
-              {data.map((item) => {
-                const { id, title, due, count } = item;
+              {tasks.map((task) => {
+                const displayId = task.type ? `${task.type}-${task.id.slice(0, 4)}` : `Task-${task.id.slice(0, 4)}`;
+                const count = task.chat?.length || 0;
+                const isSelected = selectedTask?.id === task.id;
+
                 return (
                   <div
-                    key={id}
-                    className="py-3.5 px-4 bg-white rounded-[8px] cursor-pointer hover:bg-[#F3F4F6] border border-[#E8E8E8] relative">
+                    key={task.id}
+                    onClick={() => onSelectTask(task)}
+                    className={`py-3.5 px-4 rounded-[8px] cursor-pointer border relative
+                      ${isSelected ? 'bg-[#F3F4F6] border-[#E8E8E8]' : 'bg-white border-transparent hover:bg-[#F3F4F6] border-[#E8E8E8]'}
+                    `}>
                     {count > 0 && (
                       <div className="py-[2px] px-2 bg-black rounded-full inline-block text-white absolute top-2 right-2 text-xs">
                         {count}
@@ -134,12 +87,12 @@ export function ChatSidebar({ onNewChat }: ChatSidebarProps) {
                     )}
 
                     <div className="flex flex-col gap-2.5">
-                      <div className="title text-black text-sm">{id}</div>
-                      <div className="title text-[#4B5563] text-sm">
-                        {title}
+                      <div className="title text-black text-sm">{displayId}</div>
+                      <div className="title text-[#4B5563] text-sm line-clamp-2">
+                        {task.title}
                       </div>
                       <div className="title text-[#6B7280] text-xs">
-                        Due: {due}
+                        Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No Date'}
                       </div>
                     </div>
                   </div>

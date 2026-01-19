@@ -75,24 +75,27 @@ export default function DCForm({ setOpen }: any) {
       return;
     }
 
+    const projectId = localStorage.getItem("selectedProjectId");
+    if (!projectId) {
+      toast.error("No project selected. Please select a project from the sidebar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const files = await uploadAllFiles();
 
-      const extraFields = [{
-        causeCategory,
-        costImpact,
-        requestedExtension,
-        description
-      }];
-
       const payload = {
+        project_id: projectId,
         title,
-        category: "DC",
-        status: "todo",
-        description: extraFields,
-        attachment: files,
+        type: "DC",
+        status: "Todo",
+        priority: "Medium",
+        Cause: causeCategory,
+        Cost: costImpact,
+        Extension: requestedExtension,
+        description: files.length > 0 ? `${description}\n\nAttachments: ${JSON.stringify(files)}` : description,
       };
 
       await mutateAsync(payload);

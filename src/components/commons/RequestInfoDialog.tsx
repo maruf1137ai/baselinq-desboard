@@ -15,15 +15,30 @@ import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
-export function RequestInfoDialog({ wFull }) {
+export function RequestInfoDialog({ wFull, onSubmit }: { wFull?: boolean; onSubmit: (data: any) => void }) {
   const [open, setOpen] = useState(false);
-  const [isOn, setIsOn] = useState(false);
   const [date, setDate] = useState<Date>();
+  const [recipient, setRecipient] = useState('');
+  const [message, setMessage] = useState('');
+  const [note, setNote] = useState('');
 
-  console.log(wFull);
-
-  const toggleSwitch = () => {
-    setIsOn(!isOn);
+  const handleSend = () => {
+    const requestData = {
+      recipient,
+      date: date ? date.toISOString() : null, // Ensure serializable
+      message,
+      note,
+      createdAt: new Date().toISOString()
+    };
+    
+    onSubmit(requestData);
+    setOpen(false);
+    
+    // Reset form
+    setRecipient('');
+    setMessage('');
+    setNote('');
+    setDate(undefined);
   };
 
   return (
@@ -42,24 +57,29 @@ export function RequestInfoDialog({ wFull }) {
 
         <div className="space-y-4 px-6">
           <div className="space-y-5">
-            {/* Document Title */}
+            {/* Recipient */}
             <div>
-              <Label htmlFor="title" className="text-sm text-[#1A1F36]">
+              <Label htmlFor="recipient" className="text-sm text-[#1A1F36]">
                 Recipient(s)
               </Label>
-              <Input id="title" placeholder="David Contractor, Sarah Johnson" className="mt-2" />
+              <Input 
+                id="recipient" 
+                placeholder="David Contractor, Sarah Johnson" 
+                className="mt-2" 
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+              />
             </div>
-            {/* Document Title */}
+            
+            {/* Date */}
             <div className="flex flex-col">
-              {/* 👇 Added your label here */}
-              <Label htmlFor="date" className="text-sm text-[#1A1F36] mb-2">
-                Recipient(s)
+              <Label className="text-sm text-[#1A1F36] mb-2">
+                Due Date
               </Label>
 
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
-                    id="date"
                     variant="outline"
                     className={cn('w-full justify-start text-left font-normal', !date && 'text-muted-foreground')}
                   >
@@ -73,7 +93,7 @@ export function RequestInfoDialog({ wFull }) {
               </Popover>
             </div>
 
-            {/* Document Title */}
+            {/* Message */}
             <div>
               <Label htmlFor="message" className="text-sm text-[#1A1F36]">
                 Request details
@@ -82,15 +102,23 @@ export function RequestInfoDialog({ wFull }) {
                 id="message"
                 placeholder="Please provide updated foundation drawings with soil test results..."
                 className="min-h-[120px] w-full mt-2"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
               />
             </div>
 
-            {/* Document Title */}
+            {/* Note */}
             <div>
               <Label htmlFor="note" className="text-sm text-[#1A1F36]">
                 Optional note
               </Label>
-              <Input id="note" placeholder="Add any additional context..." className="mt-2" />
+              <Input 
+                id="note" 
+                placeholder="Add any additional context..." 
+                className="mt-2" 
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
             </div>
           </div>
         </div>
@@ -99,7 +127,7 @@ export function RequestInfoDialog({ wFull }) {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button>Send Request</Button>
+            <Button onClick={handleSend}>Send Request</Button>
           </div>
         </div>
       </DialogContent>

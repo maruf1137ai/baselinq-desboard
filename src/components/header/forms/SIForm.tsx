@@ -92,29 +92,33 @@ export default function SIForm({ setOpen }: any) {
       return;
     }
 
+    const projectId = localStorage.getItem("selectedProjectId");
+    if (!projectId) {
+      toast.error("No project selected. Please select a project from the sidebar.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const files = await uploadAllFiles();
-
-      // Construct the payload. 
-      // Store extra fields as JSON in description
-      const extraFields = [{
-        discipline: formData.discipline,
-        instruction: formData.instruction,
-        location: formData.location,
-        urgency: formData.urgency,
-        dueDate: formData.dueDate,
-        voReference: formData.voReference,
-        costImpact: formData.costImpact
-      }]
+      
+      const formatUrgency = (u: string) => u ? u.charAt(0).toUpperCase() + u.slice(1) : "Medium";
 
       const payload = {
+        project_id: projectId,
         title: formData.title,
-        category: "SI",
-        status: "todo",
-        description: extraFields,
-        attachment: files,
+        type: "SI",
+        status: "Todo",
+        priority: "Medium",
+        Discipline: formData.discipline,
+        Instruction: formData.instruction,
+        Location: formData.location,
+        Urgency: formatUrgency(formData.urgency),
+        due_date: formData.dueDate || null,
+        "VO Reference": formData.voReference,
+        Cost: formData.costImpact,
+        description: files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : "",
       };
 
       await mutateAsync(payload);
