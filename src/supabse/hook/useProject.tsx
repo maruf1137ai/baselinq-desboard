@@ -25,6 +25,7 @@ export const useCreateProject = () => {
     mutationFn: createProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+      window.location.reload()
     },
   });
 };

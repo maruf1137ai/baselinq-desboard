@@ -36,8 +36,8 @@ const projectSchema = z.object({
   start_date: z.string().min(1, "Start date is required"),
   end_date: z.string().min(1, "End date is required"),
   fx_rate: z.coerce.number().min(0, "Must be a positive number"),
-  retention_rate: z.coerce.number().min(0).max(100, "Must be between 0 and 100"),
-  vat_rate: z.coerce.number().min(0).max(100, "Must be between 0 and 100"),
+  retention_rate: z.coerce.number().min(0).max(10, "Must be between 0 and 10"),
+  vat_rate: z.coerce.number().min(0).max(25, "Must be between 0 and 25"),
   contract_type: z.string().min(1, "Contract type is required"),
   total_budget: z.coerce.number().min(0, "Must be a positive number"),
 });
@@ -221,7 +221,7 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
                   <FormItem>
                     <FormLabel>Retention Rate (%)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.1" {...field} />
+                      <Input max={10} type="number" step="0.1" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -234,7 +234,7 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
                   <FormItem>
                     <FormLabel>VAT Rate (%)</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.1" {...field} />
+                      <Input max={25} type="number" step="0.1" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
