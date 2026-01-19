@@ -194,7 +194,11 @@ export const createProject = async (projectData: any) => {
 // ---------------------------
 export const getCurrentUser = async () => {
   const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw new Error(error.message);
+  if (error) {
+    window.location.href = "/login"
+    throw new Error(error.message)
+
+  }; 
   return user;
 };
 
