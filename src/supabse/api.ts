@@ -133,6 +133,20 @@ export const uploadFile = async (file: File, id: string) => {
   return urlData.publicUrl;
 };
 
+// Delete file from Supabase Storage
+export const deleteFile = async (taskId: string, fileName: string) => {
+  const { data, error } = await supabase.storage
+    .from("documents")
+    .remove([`${taskId}/${fileName}`]);
+
+  if (error) {
+    console.error("Delete error:", error);
+    throw error;
+  }
+
+  return data;
+};
+
 // Get all documents for a task
 export const getTaskDocuments = async (taskId: string) => {
   const { data, error } = await supabase.storage
