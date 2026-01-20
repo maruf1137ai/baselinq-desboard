@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { uploadFile } from "@/supabse/api";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +42,8 @@ const projectSchema = z.object({
   vat_rate: z.coerce.number().min(0).max(25, "Must be between 0 and 25"),
   contract_type: z.string().min(1, "Contract type is required"),
   total_budget: z.coerce.number().min(0, "Must be a positive number"),
+  location: z.string().optional(),
+  attachments: z.array(z.string()).optional(),
 });
 
 interface OnboardingModalProps {
@@ -49,6 +53,8 @@ interface OnboardingModalProps {
 
 export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) {
   const { mutate: createProject, isPending } = useCreateProject();
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
 
   const form = useForm<z.infer<typeof projectSchema>>({
     resolver: zodResolver(projectSchema),
@@ -63,16 +69,75 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
       vat_rate: 0,
       contract_type: "JBCC",
       total_budget: 0,
+      location: "",
+      attachments: [],
     },
   });
 
-  const onSubmit = (values: z.infer<typeof projectSchema>) => {
-    createProject(values, {
-      onSuccess: (data) => {
-        toast.success("Project created successfully!");
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles((prev) => [...prev, ...Array.from(e.target.files || [])]);
+    }
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadAllFiles = async (projectId: string) => {
+    if (!selectedFiles.length) return [];
+    setIsUploading(true);
+    const uploadedUrls: string[] = [];
+
+    for (const file of selectedFiles) {
+      try {
+        const url = await uploadFile(file, projectId);
+        uploadedUrls.push(url);
+      } catch (err) {
+        console.error("Error uploading file:", file.name, err);
+        toast.error(`Failed to upload ${file.name}`);
+      }
+    }
+
+    setIsUploading(false);
+    return uploadedUrls;
+  };
+
+  const onSubmit = async (values: z.infer<typeof projectSchema>) => {
+    const data = {
+      name: values.name,
+      description: values.description,
+      number: values.number,
+      start_date: values.start_date,
+      end_date: values.end_date,
+      fx_rate: values.fx_rate,
+      retention_rate: values.retention_rate,
+      vat_rate: values.vat_rate,
+      contract_type: values.contract_type,
+      total_budget: values.total_budget,
+      location: values.location,
+    }
+
+    createProject({
+      ...data,
+    }, {
+      onSuccess: async (data) => {
+        if (selectedFiles.length > 0) {
+          try {
+            await uploadAllFiles(data.id);
+            toast.success("Project and attachments created successfully!");
+            console.log("Project created successfully!", data);
+          } catch (error) {
+            console.error("Attachment upload error:", error);
+            toast.error("Project created but failed to upload attachments");
+          }
+        } else {
+          toast.success("Project created successfully!");
+        }
+
         onOpenChange(false);
-        // Optionally save to localStorage if this is the first project
         localStorage.setItem("selectedProjectId", data.id);
+        setSelectedFiles([]);
       },
       onError: (error) => {
         toast.error(`Failed to create project: ${error.message}`);
@@ -135,6 +200,71 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Project Location (e.g. New York, NY)" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="attachments"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Attachments</FormLabel>
+                  <FormControl>
+                    <div>
+                      <Input
+                        type="file"
+                        id="project-upload"
+                        className="hidden"
+                        onChange={handleFileChange}
+                        multiple
+                      />
+                      <div
+                        className="mt-2 flex flex-col items-center justify-center border-2 border-dashed rounded-lg py-8 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => document.getElementById("project-upload")?.click()}>
+                        <p className="text-sm text-muted-foreground">
+                          Drag and drop your file here
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          or click to browse
+                        </p>
+                      </div>
+
+                      {/* Selected files */}
+                      {selectedFiles.length > 0 && (
+                        <div className="mt-2 flex flex-col gap-2">
+                          {selectedFiles.map((file, index) => (
+                            <div
+                              key={index}
+                              className="flex justify-between items-center border p-2 rounded">
+                              <span className="text-sm">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFile(index)}
+                                className="text-red-500 text-xs hover:underline">
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -185,7 +315,7 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
                   <FormItem>
                     <FormLabel>FX Rate</FormLabel>
                     <FormControl>
-                      <Input type="number"step="0.01" {...field} />
+                      <Input type="number" step="0.01" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -213,7 +343,7 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
                 )}
               />
             </div>
-             <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="retention_rate"
@@ -243,8 +373,8 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
             </div>
 
             <div className="flex justify-end pt-4">
-              <Button type="submit" disabled={isPending}>
-                {isPending ? "Creating..." : "Create Project"}
+              <Button type="submit" disabled={isPending || isUploading}>
+                {isPending || isUploading ? "Creating..." : "Create Project"}
               </Button>
             </div>
           </form>

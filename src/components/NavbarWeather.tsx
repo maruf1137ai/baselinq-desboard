@@ -4,29 +4,55 @@ const NavbarWeather = () => {
   const [weather, setWeather] = useState(null);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setError("Geolocation not supported");
-      return;
-    }
+  const [projectLocation, setProjectLocation] = useState(localStorage.getItem("projectLocation"));
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        try {
-          const response = await fetch(
-            `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=8dda08a209080b44cdc3566edffcfbc4`
+  useEffect(() => {
+    const handleProjectChange = () => {
+      setProjectLocation(localStorage.getItem("projectLocation"));
+    };
+
+    window.addEventListener("project-change", handleProjectChange);
+    return () => window.removeEventListener("project-change", handleProjectChange);
+  }, []);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        let url = "";
+        if (projectLocation) {
+          url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(projectLocation)}&units=metric&appid=8dda08a209080b44cdc3566edffcfbc4`;
+        } else if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const { latitude, longitude } = position.coords;
+              const geoUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${latitude}&lon=${longitude}&units=metric&appid=8dda08a209080b44cdc3566edffcfbc4`;
+              const response = await fetch(geoUrl);
+              if (!response.ok) throw new Error("Failed to fetch weather");
+              const data = await response.json();
+              setWeather(data);
+            },
+            () => setError("Unable to get location")
           );
+          return; // Exit and wait for geolocation callback
+        } else {
+          setError("Geolocation not supported and no project location set");
+          return;
+        }
+
+        if (url) {
+          const response = await fetch(url);
           if (!response.ok) throw new Error("Failed to fetch weather");
           const data = await response.json();
           setWeather(data);
-        } catch (err) {
-          setError(err.message);
+          setError(null);
         }
-      },
-      () => setError("Unable to get location")
-    );
-  }, []);
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+
+    fetchWeather();
+  }, [projectLocation]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.9rem" }}>
