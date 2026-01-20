@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useCreateProject } from "@/supabse/hook/useProject";
+import { useCreateProject, useUpdateProject } from "@/supabse/hook/useProject";
 import { toast } from "sonner";
 
 const projectSchema = z.object({
@@ -49,10 +49,13 @@ const projectSchema = z.object({
 interface OnboardingModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  project?: any;
 }
 
-export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) {
-  const { mutate: createProject, isPending } = useCreateProject();
+export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingModalProps) {
+  const { mutate: createProject, isPending: isCreating } = useCreateProject();
+  const { mutate: updateProject, isPending: isUpdatingProject } = useUpdateProject();
+  const isPending = isCreating || isUpdatingProject;
   const [isUploading, setIsUploading] = React.useState(false);
   const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
 
@@ -73,6 +76,43 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
       attachments: [],
     },
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      if (project) {
+        form.reset({
+          name: project.name || "",
+          description: project.description || "",
+          number: project.number || "",
+          start_date: project.start_date || "",
+          end_date: project.end_date || "",
+          fx_rate: project.fx_rate || 1,
+          retention_rate: project.retention_rate || 0,
+          vat_rate: project.vat_rate || 0,
+          contract_type: project.contract_type || "JBCC",
+          total_budget: project.total_budget || 0,
+          location: project.location || "",
+          attachments: project.attachments || [],
+        });
+      } else {
+        form.reset({
+          name: "",
+          description: "",
+          number: "PRJ-001",
+          start_date: "",
+          end_date: "",
+          fx_rate: 1,
+          retention_rate: 0,
+          vat_rate: 0,
+          contract_type: "JBCC",
+          total_budget: 0,
+          location: "",
+          attachments: [],
+        });
+      }
+      setSelectedFiles([]);
+    }
+  }, [project, isOpen, form]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -116,31 +156,35 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
       contract_type: values.contract_type,
       total_budget: values.total_budget,
       location: values.location,
+      id: project?.id,
     }
 
-    createProject({
-      ...data,
-    }, {
-      onSuccess: async (data) => {
+    const mutation = project ? updateProject : createProject;
+
+    mutation(data, {
+      onSuccess: async (result) => {
         if (selectedFiles.length > 0) {
           try {
-            await uploadAllFiles(data.id);
-            toast.success("Project and attachments created successfully!");
-            console.log("Project created successfully!", data);
+            await uploadAllFiles(result.id);
+            toast.success(project ? "Project updated with attachments!" : "Project created with attachments!");
           } catch (error) {
             console.error("Attachment upload error:", error);
-            toast.error("Project created but failed to upload attachments");
+            toast.error("Project saved but failed to upload attachments");
           }
         } else {
-          toast.success("Project created successfully!");
+          toast.success(project ? "Project updated successfully!" : "Project created successfully!");
         }
 
         onOpenChange(false);
-        localStorage.setItem("selectedProjectId", data.id);
+        localStorage.setItem("selectedProjectId", result.id);
+        if (result.location) {
+          localStorage.setItem("projectLocation", result.location);
+          window.dispatchEvent(new Event("project-change"));
+        }
         setSelectedFiles([]);
       },
       onError: (error) => {
-        toast.error(`Failed to create project: ${error.message}`);
+        toast.error(`Failed to ${project ? 'update' : 'create'} project: ${error.message}`);
       },
     });
   };
@@ -149,9 +193,9 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Welcome! Let's set up your first project</DialogTitle>
+          <DialogTitle>{project ? "Edit Project" : "Welcome! Let's set up your first project"}</DialogTitle>
           <DialogDescription>
-            You need at least one project to get started. Fill in the details below.
+            {project ? "Update the project details below." : "You need at least one project to get started. Fill in the details below."}
           </DialogDescription>
         </DialogHeader>
 
@@ -374,7 +418,7 @@ export function OnboardingModal({ isOpen, onOpenChange }: OnboardingModalProps) 
 
             <div className="flex justify-end pt-4">
               <Button type="submit" disabled={isPending || isUploading}>
-                {isPending || isUploading ? "Creating..." : "Create Project"}
+                {isPending || isUploading ? (project ? "Updating..." : "Creating...") : (project ? "Update Project" : "Create Project")}
               </Button>
             </div>
           </form>
