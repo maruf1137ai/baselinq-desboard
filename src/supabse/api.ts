@@ -12,16 +12,16 @@ import { supabase } from "../lib/supabaseClient";
 // ---------------------------
 export const GetTask = async (projectId?: string) => {
   let query = supabase.from('task').select('*');
-  
+
   if (projectId) {
     query = query.eq('project_id', projectId);
   }
-  
+
   query = query.order('created_by', { ascending: false }); // or created_at if it exists, using created_by as listed in schema user provided, but likely created_at is better standard. User schema didn't explicitly list created_at, but `created_by` IS user.id. I'll stick to created_by or just not order if unsure. But standard is created_at. I'll check my createProject, it used created_at. Standard Supabase.
   // Actually, wait, use `created_at` if I can, but to be safe with the prompt "don't add new field", if user didn't mention it... but Supabase usually adds it. 
   // Let's just return unsorted or sort by title? 
   // I will assume created_at exists as it's standard, or just not sort for now to be safe.
-  
+
   const { data, error } = await query;
   if (error) {
     throw new Error(error.message);
@@ -106,16 +106,16 @@ export const deleteTask = async (taskId) => {
 
 
 // Upload file to Supabase Storage
-export const uploadFile = async (file: File) => {
+export const uploadFile = async (file: File, id: string) => {
   const safeFileName = file.name
     .replace(/\s/g, "_")
     .replace(/[^a-zA-Z0-9._-]/g, "");
 
-  const filePath = `uploads/${Date.now()}_${safeFileName}`;
+  const filePath = `${id}/${safeFileName}`;
 
   // Upload
   const { data: uploadData, error: uploadError } = await supabase.storage
-    .from("taskFiles")
+    .from("documents")
     .upload(filePath, file);
 
   if (uploadError) {
@@ -124,18 +124,39 @@ export const uploadFile = async (file: File) => {
   }
 
   // Get public URL
-  const { data: urlData, error: urlError } = supabase.storage
-    .from("taskFiles")
+  const { data: urlData } = supabase.storage
+    .from("documents")
     .getPublicUrl(filePath);
-
-  if (urlError) {
-    console.error("Get URL error:", urlError);
-    throw urlError;
-  }
 
   console.log("Uploaded file path:", filePath, "Public URL:", urlData.publicUrl);
 
   return urlData.publicUrl;
+};
+
+// Get all documents for a task
+export const getTaskDocuments = async (taskId: string) => {
+  const { data, error } = await supabase.storage
+    .from("documents")
+    .list(taskId);
+
+  if (error) {
+    console.error("Error fetching documents:", error);
+    throw error;
+  }
+
+  // Map to include public URLs
+  const filesWithUrls = data.map((file) => {
+    const { data: urlData } = supabase.storage
+      .from("documents")
+      .getPublicUrl(`${taskId}/${file.name}`);
+
+    return {
+      ...file,
+      url: urlData.publicUrl
+    };
+  });
+
+  return filesWithUrls;
 };
 
 // ---------------------------
@@ -198,7 +219,7 @@ export const getCurrentUser = async () => {
     window.location.href = "/login"
     throw new Error(error.message)
 
-  }; 
+  };
   return user;
 };
 
