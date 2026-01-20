@@ -102,7 +102,7 @@ export default function SIForm({ setOpen }: any) {
 
     try {
       const files = await uploadAllFiles();
-      
+
       const formatUrgency = (u: string) => u ? u.charAt(0).toUpperCase() + u.slice(1) : "Medium";
 
       const payload = {

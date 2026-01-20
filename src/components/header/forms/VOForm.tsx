@@ -103,8 +103,8 @@ export default function VOForm({ setOpen }: any) {
       const files = await uploadAllFiles();
 
       const totalCostVal = items.reduce((acc, item) => acc + (item.qty || 0) * (item.rate || 0), 0);
-      const itemsDetails = items.map(i => `- ${i.description} (x${i.qty}) @ R${i.rate} = R${((i.qty||0)*(i.rate||0)).toFixed(2)}`).join("\n");
-      
+      const itemsDetails = items.map(i => `- ${i.description} (x${i.qty}) @ R${i.rate} = R${((i.qty || 0) * (i.rate || 0)).toFixed(2)}`).join("\n");
+
       const fullDescription = `
 ${description}
 

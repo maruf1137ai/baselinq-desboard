@@ -22,10 +22,10 @@ function TaskCard({ task, isDragging }: any) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const formattedDate = task.due_date 
+  const formattedDate = task.due_date
     ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : (task.created_at ? new Date(task.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date');
-  
+
   const displayId = `#${task.type || 'TSK'}-${task.id.slice(0, 4)}`;
 
   return (
@@ -72,11 +72,11 @@ function TaskCard({ task, isDragging }: any) {
             <div className="flex pt-[15px] border-t border-[#E6E8EB] mt-3 items-center gap-4 text-[#9CA3AF] text-xs">
               <div className="flex items-center gap-1">
                 <MessageSquare className="h-3.5 w-3.5" />
-                <span>0</span>
+                <span>{task?.chat?.length || 0}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Paperclip className="h-3.5 w-3.5" />
-                <span>0</span>
+                <span>{task?.chat?.map((chat) => chat?.files?.length || 0).reduce((a, b) => a + b, 0) || 0}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Eye className="h-3.5 w-3.5" />
@@ -135,7 +135,7 @@ export default function Task() {
     inReview: [],
     done: [],
   });
-  
+
   const [activeId, setActiveId] = useState(null);
   const [activeStartContainer, setActiveStartContainer] = useState(null);
   const navigate = useNavigate();
@@ -239,16 +239,16 @@ export default function Task() {
 
     // If moved to a different container compared to start
     if (activeStartContainer !== overContainer) {
-        let newStatus = 'Todo';
-        if (overContainer === 'inReview') newStatus = 'In Review';
-        if (overContainer === 'done') newStatus = 'Done';
-        
-        try {
-           await updateTask({ id: active.id, status: newStatus });
-           toast.success(`Task moved to ${newStatus}`);
-        } catch (error) {
-           toast.error("Failed to update status");
-        }
+      let newStatus = 'Todo';
+      if (overContainer === 'inReview') newStatus = 'In Review';
+      if (overContainer === 'done') newStatus = 'Done';
+
+      try {
+        await updateTask({ id: active.id, status: newStatus });
+        toast.success(`Task moved to ${newStatus}`);
+      } catch (error) {
+        toast.error("Failed to update status");
+      }
     }
 
     // Reorder validation
@@ -267,35 +267,35 @@ export default function Task() {
 
   return (
     <DashboardLayout>
-       {projectId ? (
+      {projectId ? (
         isLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading tasks...</div>
+          <div className="p-8 text-center text-gray-500">Loading tasks...</div>
         ) : (
-        <div className="w-full h-screen bg-white overflow-x-auto">
+          <div className="w-full h-screen bg-white overflow-x-auto">
             <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
             >
-            <div className="flex gap-6 min-w-min">
+              <div className="flex gap-6 min-w-min">
                 <Column id="todo" title="To Do" count={tasks.todo.length} tasks={tasks.todo} />
                 <Column id="inReview" title="In Review" count={tasks.inReview.length} tasks={tasks.inReview} />
                 <Column id="done" title="Done" count={tasks.done.length} tasks={tasks.done} />
-            </div>
+              </div>
 
-            <DragOverlay>
+              <DragOverlay>
                 {activeId ? (
-                <TaskCard task={allListFlat.find((t: any) => t.id === activeId)} isDragging />
+                  <TaskCard task={allListFlat.find((t: any) => t.id === activeId)} isDragging />
                 ) : null}
-            </DragOverlay>
+              </DragOverlay>
             </DndContext>
-        </div>
+          </div>
         )
-       ) : (
-           <div className="p-8 text-center text-gray-500">Please select a project from the sidebar</div>
-       )}
+      ) : (
+        <div className="p-8 text-center text-gray-500">Please select a project from the sidebar</div>
+      )}
     </DashboardLayout>
   );
 }

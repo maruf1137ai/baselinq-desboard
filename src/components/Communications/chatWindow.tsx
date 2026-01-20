@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, Mic, X, Pause } from "lucide-react";
 import { useUpdateTask } from "@/supabse/hook/useTask";
+import { uploadFile } from "@/supabse/api";
+import { toast } from "sonner";
 
 const ChatWindow = ({ task }: { task: any }) => {
   const [message, setMessage] = useState("");
@@ -10,7 +12,12 @@ const ChatWindow = ({ task }: { task: any }) => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   // Sync messages with selected task
   useEffect(() => {
@@ -31,36 +38,59 @@ const ChatWindow = ({ task }: { task: any }) => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (message.trim() === "" && attachedFiles.length === 0) return;
+    if (message.trim() === "" && attachedFiles.length === 0 && !isRecording) return;
 
-    // Add user message
-    const newUserMessage = {
-      id: Date.now(), // Simple ID generation
-      type: "user",
-      content: message.trim(),
-      files: [...attachedFiles],
-      sender: "You", // In a real app, use logged in user's name
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-
-    const newChatHistory = [...(messages || []), newUserMessage];
-    setMessages(newChatHistory);
-    setMessage("");
-    setAttachedFiles([]);
-    
-    if (task?.id) {
-        try {
-            await updateTask({ id: task.id, chat: newChatHistory });
-        } catch (error) {
-            console.error("Failed to update chat", error);
-        }
+    if (isRecording) {
+      stopRecording();
+      return;
     }
 
-    // Simulate AI response logic removed to focus on persistence, 
-    // or can be re-added if AI integration exists.
+    setIsUploading(true);
+    try {
+      const uploadedFiles = [];
+
+      // Upload files if any
+      for (const fileData of attachedFiles) {
+        try {
+          const url = await uploadFile(fileData.file, task.id);
+          uploadedFiles.push({
+            name: fileData.name,
+            type: fileData.type,
+            url: url
+          });
+        } catch (error) {
+          console.error(`Failed to upload ${fileData.name}`, error);
+          toast.error(`Failed to upload ${fileData.name}`);
+        }
+      }
+
+      // Add user message
+      const newUserMessage = {
+        id: Date.now(),
+        type: "user",
+        content: message.trim(),
+        files: uploadedFiles,
+        sender: "You",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+
+      const newChatHistory = [...(messages || []), newUserMessage];
+      setMessages(newChatHistory);
+      setMessage("");
+      setAttachedFiles([]);
+
+      if (task?.id) {
+        await updateTask({ id: task.id, chat: newChatHistory });
+      }
+    } catch (error) {
+      console.error("Failed to send message", error);
+      toast.error("Failed to send message");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleKeyPress = (e: any) => {
@@ -86,6 +116,123 @@ const ChatWindow = ({ task }: { task: any }) => {
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        if (mediaRecorderRef.current?.stream) {
+          mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+
+        // Check if we should save
+        if (mediaRecorderRef.current && (mediaRecorderRef.current as any).isCancelled) {
+          console.log("Recording cancelled");
+          return;
+        }
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const audioFile = new File([audioBlob], `voice_${Date.now()}.webm`, {
+          type: "audio/webm",
+        });
+
+        // Upload and send immediately
+        await handleAudioUploadAndSend(audioFile);
+
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setIsPaused(false);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      toast.error("Microphone access denied");
+    }
+  };
+
+  const stopRecording = (cancel = false) => {
+    if (mediaRecorderRef.current && isRecording) {
+      if (cancel) {
+        (mediaRecorderRef.current as any).isCancelled = true;
+      }
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsPaused(false);
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+    }
+  };
+
+  const handleAudioUploadAndSend = async (audioFile: File) => {
+    setIsUploading(true);
+    try {
+      const url = await uploadFile(audioFile, task.id);
+
+      const newUserMessage = {
+        id: Date.now(),
+        type: "user",
+        content: "", // Empty content for voice messages
+        files: [{
+          name: "Voice Message",
+          type: "audio/webm",
+          url: url
+        }],
+        sender: "You",
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+
+      const newChatHistory = [...(messages || []), newUserMessage];
+      setMessages(newChatHistory);
+
+      if (task?.id) {
+        await updateTask({ id: task.id, chat: newChatHistory });
+      }
+    } catch (error) {
+      console.error("Failed to send voice message", error);
+      toast.error("Failed to send voice message");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleVoiceRecord = () => {
+    if (isRecording) {
+      if (isPaused) {
+        resumeRecording();
+      } else {
+        pauseRecording();
+      }
+    } else {
+      startRecording();
+    }
   };
 
   const FileIcon = ({ type }: { type: string }) => {
@@ -156,9 +303,8 @@ const ChatWindow = ({ task }: { task: any }) => {
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`relative max-w-[396px] w-full ${
-                    msg.type === "user" ? "" : "self-start"
-                  }`}>
+                  className={`relative max-w-[396px] w-full ${msg.type === "user" ? "" : "self-start"
+                    }`}>
                   {msg.type === "user" ? (
                     // User Message
                     <div className="relative rounded-[10px] w-full bg-[#F3F2F0] py-5 px-4">
@@ -171,14 +317,26 @@ const ChatWindow = ({ task }: { task: any }) => {
                       {msg.files && msg.files.length > 0 && (
                         <div className="flex items-start gap-2 flex-wrap mt-2">
                           {msg.files.map((file, index) => (
-                            <div
-                              key={index}
-                              className="bg-white inline-flex items-center gap-1 rounded-[4px] py-2 px-3">
-                              <FileIcon type={file.type} />
-                              <div className="text-[#364153] text-[14px]">
-                                <p className="leading-[20px]">{file.name}</p>
+                            file.type.startsWith('audio/') || file.name.endsWith('.webm') ? (
+                              <div key={index} className="w-full min-w-[200px] mt-2">
+                                <audio controls className="w-full h-8">
+                                  <source src={file.url} type={file.type || "audio/webm"} />
+                                  Your browser does not support the audio element.
+                                </audio>
                               </div>
-                            </div>
+                            ) : (
+                              <a
+                                key={index}
+                                href={file.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-white inline-flex items-center gap-1 rounded-[4px] py-2 px-3 hover:bg-gray-50 transition-colors">
+                                <FileIcon type={file.type} />
+                                <div className="text-[#364153] text-[14px]">
+                                  <p className="leading-[20px]">{file.name}</p>
+                                </div>
+                              </a>
+                            )
                           ))}
                         </div>
                       )}
@@ -360,26 +518,58 @@ const ChatWindow = ({ task }: { task: any }) => {
               </svg>
             </button>
 
-            {/* Input */}
-            <input
-              type="text"
-              placeholder="Type a message…"
-              className="flex-grow bg-transparent outline-none text-[16px] text-[#676767]"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyPress}
-            />
+            {/* Voice Icon */}
+            <button
+              onClick={handleVoiceRecord}
+              className={`shrink-0 w-6 h-6 cursor-pointer hover:text-[#101828] ${isRecording ? "text-red-500" : "text-[#676767]"
+                }`}>
+              {isRecording && !isPaused ? (
+                <Pause className="w-6 h-6" />
+              ) : (
+                <Mic className="w-6 h-6" />
+              )}
+            </button>
+
+            {/* Input or Recording UI */}
+            {isRecording ? (
+              <div className="flex-grow flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full bg-red-500 ${!isPaused && "animate-pulse"}`} />
+                <span className="text-[#676767] text-[16px]">
+                  {isPaused ? "Recording Paused" : "Recording..."}
+                </span>
+                <button
+                  onClick={() => {
+                    stopRecording(true);
+                  }}
+                  className="ml-auto p-1 hover:bg-gray-200 rounded-full"
+                >
+                  <X className="w-4 h-4 text-[#676767]" />
+                </button>
+              </div>
+            ) : (
+              <input
+                type="text"
+                placeholder="Type a message…"
+                className="flex-grow bg-transparent outline-none text-[16px] text-[#676767]"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyPress}
+              />
+            )}
 
             {/* Send Button */}
             <button
               onClick={handleSend}
-              disabled={message.trim() === "" && attachedFiles.length === 0}
-              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                message.trim() || attachedFiles.length > 0
-                  ? "bg-[#101828] cursor-pointer"
-                  : "bg-[#e0e0e0] cursor-not-allowed"
-              }`}>
-              <Send className="w-4 h-4 text-white" />
+              disabled={((message.trim() === "" && attachedFiles.length === 0) && !isRecording) || isUploading}
+              className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${((message.trim() || attachedFiles.length > 0) || isRecording) && !isUploading
+                ? "bg-[#101828] cursor-pointer"
+                : "bg-[#e0e0e0] cursor-not-allowed"
+                }`}>
+              {isUploading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="w-4 h-4 text-white" />
+              )}
             </button>
           </div>
         </div>

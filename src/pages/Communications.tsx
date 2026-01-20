@@ -20,11 +20,11 @@ const Communications = () => {
     <DashboardLayout padding="p-0">
       <div className="h-full flex">
         <div className="border-border bg-white flex-shrink-0">
-          <ChatSidebar 
-            tasks={tasks || []} 
-            selectedTask={selectedTask} 
-            onSelectTask={setSelectedTask} 
-            onNewChat={() => {}} // Placeholder
+          <ChatSidebar
+            tasks={tasks || []}
+            selectedTask={selectedTask}
+            onSelectTask={setSelectedTask}
+            onNewChat={() => { }} // Placeholder
           />
         </div>
         <div className="chatWindow flex-1">
