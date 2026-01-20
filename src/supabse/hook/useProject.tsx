@@ -10,8 +10,8 @@ export const useProjects = () => {
   } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-        const { data } = await getProjects();
-        return data || [];
+      const { data } = await getProjects();
+      return data || [];
     },
   });
 
@@ -25,7 +25,7 @@ export const useCreateProject = () => {
     mutationFn: createProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      window.location.reload()
+      // window.location.reload()
     },
   });
 };

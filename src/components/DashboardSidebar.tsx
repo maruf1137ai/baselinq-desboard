@@ -62,7 +62,7 @@ export function DashboardSidebar() {
   const { data: projects = [], isLoading } = useProjects();
   const { data: user } = useUser(); // New hook usage
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState(() => 
+  const [selectedProjectId, setSelectedProjectId] = useState(() =>
     localStorage.getItem("selectedProjectId") || ""
   );
 
@@ -78,10 +78,11 @@ export function DashboardSidebar() {
   }, [projects, isLoading, selectedProjectId]);
 
   const handleProjectSelect = (projectId: string) => {
-    setSelectedProjectId(projectId);
-    localStorage.setItem("selectedProjectId", projectId);
+    setSelectedProjectId(projectId?.id);
+    localStorage.setItem("selectedProjectId", projectId?.id);
+    localStorage.setItem("projectLocation", projectId?.location);
     window.dispatchEvent(new Event("project-change"));
-    window.location.reload()
+    // window.location.reload()
   };
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
@@ -89,7 +90,7 @@ export function DashboardSidebar() {
   const handleLogout = async () => {
     try {
       await signOutUser();
-      window.location.href = "/login"; 
+      window.location.href = "/login";
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -118,9 +119,9 @@ export function DashboardSidebar() {
                 <DropdownMenuLabel>Projects</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {projects.map((project: any) => (
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     key={project.id}
-                    onClick={() => handleProjectSelect(project.id)}
+                    onClick={() => handleProjectSelect(project)}
                     className="cursor-pointer"
                   >
                     {project.name}
@@ -130,7 +131,7 @@ export function DashboardSidebar() {
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => setShowOnboarding(true)}
                   className="cursor-pointer text-blue-600 gap-2"
                 >
@@ -227,7 +228,7 @@ export function DashboardSidebar() {
                     {user?.email || ""}
                   </p>
                 </div>
-                
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-gray-100 outline-none">
@@ -246,12 +247,12 @@ export function DashboardSidebar() {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" side="top" className="w-48">
-                    <DropdownMenuItem 
-                        onClick={handleLogout} 
-                        className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer gap-2"
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer gap-2"
                     >
-                        <LogOut className="h-4 w-4" />
-                        <span>Log out</span>
+                      <LogOut className="h-4 w-4" />
+                      <span>Log out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -260,7 +261,7 @@ export function DashboardSidebar() {
           )}
         </SidebarContent>
       </Sidebar>
-      
+
       <OnboardingModal isOpen={showOnboarding} onOpenChange={setShowOnboarding} />
     </>
   );
