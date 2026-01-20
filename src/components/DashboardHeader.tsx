@@ -45,6 +45,10 @@ const notifications = [
 
 export function DashboardHeader() {
   const [open, setOpen] = useState(false);
+  const [showWeather , setShowWeather] = useState(localStorage.getItem("weatherFeed") === "true" ? true : false);
+  
+  
+ 
 
   return (
     <>
@@ -71,7 +75,7 @@ export function DashboardHeader() {
             </div>
           </div> */}
           {/* Weather info according to user location */}
-          <NavbarWeather />
+         {showWeather && <NavbarWeather />}
         </div>
 
         <div className="flex items-center gap-2">

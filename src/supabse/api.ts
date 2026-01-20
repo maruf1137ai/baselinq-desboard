@@ -209,6 +209,27 @@ export const createProject = async (projectData: any) => {
   return data;
 };
 
+// ---------------------------
+// Update Project
+// ---------------------------
+export const updateProject = async (projectData: any) => {
+  if (!projectData.id) throw new Error("Project ID is required for update");
+
+  const { data, error } = await supabase
+    .from("project")
+    .update(projectData)
+    .eq("id", projectData.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("SUPABASE UPDATE PROJECT ERROR:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
+};
+
 
 // ---------------------------
 // User/Auth

@@ -68,8 +68,8 @@ export const VariationOrdersTable: React.FC<VariationOrdersTableProps> = ({
   };
 
   return (
-    <div className="overflow-x-aut">
-      <table className="min-w-full divide-y divide-gray-200">
+    <div className="overflow-x-auto">
+      <table className="w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
             <th

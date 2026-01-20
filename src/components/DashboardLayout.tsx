@@ -15,7 +15,7 @@ export function DashboardLayout({
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <DashboardSidebar />
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           <DashboardHeader />
           <main className={`flex-1 ${padding} bg-white  overflow-auto`}>
             {children}
