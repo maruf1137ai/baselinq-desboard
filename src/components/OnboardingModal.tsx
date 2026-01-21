@@ -156,7 +156,7 @@ export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingMod
       contract_type: values.contract_type,
       total_budget: values.total_budget,
       location: values.location,
-      id: project?.id,
+      // id: project?.id,
     }
 
     const mutation = project ? updateProject : createProject;
