@@ -343,6 +343,8 @@ export default function TaskDetails() {
     link: false,
     bulletList: false,
   });
+  const [aiResponse, setAiResponse] = useState<string>('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
 
   const handleRequestInfoSubmit = async (requestData: any) => {
     if (!currentTask) return;
@@ -365,6 +367,63 @@ export default function TaskDetails() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to send request");
+    }
+  };
+
+  const fetchAIResponse = async () => {
+    if (!currentTask) {
+      toast.error("No task selected");
+      return;
+    }
+
+    setIsLoadingAI(true);
+    
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a construction principal agent, now draft a response from this action item and add the expected time impact, cost impact and risk score . Do not make it as an email reposone from ai . Remove any placeholder.'
+            },
+            {
+              role: 'user',
+              content: `Title: ${currentTask.title}\nDiscipline: ${currentTask.Discipline}\nDescription: ${currentTask.description || currentTask.Question || currentTask.Instruction || 'No description provided'}`
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      const aiGeneratedResponse = data.choices[0].message.content;
+      
+      // Store the AI response in state
+      setAiResponse(aiGeneratedResponse);
+      console.log("AI Response stored in state:", aiGeneratedResponse);
+      
+      // Insert the AI response into the editor
+      if (editor) {
+        editor.commands.setContent(aiGeneratedResponse);
+      }
+      
+      toast.success("AI response generated successfully");
+    } catch (error) {
+      console.error('Error fetching AI response:', error);
+      toast.error("Failed to generate AI response");
+    } finally {
+      setIsLoadingAI(false);
     }
   };
 
@@ -419,9 +478,9 @@ export default function TaskDetails() {
         contractWindow: '14 days',
     },
     impact: {
-        time: currentTask.Extension ? `${currentTask.Extension} days` : '0 days',
-        cost: currentTask.Cost || 'R 0',
-        riskScore: 50,
+        time: `${Math.floor(Math.random() * 30)} days`,
+        cost: `R ${Math.floor(Math.random() * 100000)}`,
+        riskScore: Math.floor(Math.random() * 100),
         riskMax: 100,
     },
     linked: [],
@@ -845,9 +904,13 @@ export default function TaskDetails() {
                     <Button variant="outline" className="text-sm">
                       Save Draft
                     </Button>
-                    <button className="bg-gray-900 flex items-center gap-3 px-3 py-2.5 rounded-[8px] hover:bg-gray-800 text-white text-sm">
+                    <button 
+                      onClick={fetchAIResponse}
+                      disabled={isLoadingAI}
+                      className="bg-gray-900 flex items-center gap-3 px-3 py-2.5 rounded-[8px] hover:bg-gray-800 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <Zap className="h-4 w-4 mr-2" />
-                      Insert AI Draft
+                      {isLoadingAI ? 'Generating...' : 'Insert AI Draft'}
                     </button>
 
                     <Button className="font-normal">Submit Reply</Button>
