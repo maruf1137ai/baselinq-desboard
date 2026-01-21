@@ -263,7 +263,7 @@ export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingMod
               name="attachments"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Attachments</FormLabel>
+                  <FormLabel>Project Documents</FormLabel>
                   <FormControl>
                     <div>
                       <Input
