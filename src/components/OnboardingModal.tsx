@@ -179,8 +179,8 @@ export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingMod
         localStorage.setItem("selectedProjectId", result.id);
         if (result.location) {
           localStorage.setItem("projectLocation", result.location);
-          window.dispatchEvent(new Event("project-change"));
         }
+        window.dispatchEvent(new Event("project-change"));
         setSelectedFiles([]);
       },
       onError: (error) => {
@@ -346,7 +346,23 @@ export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingMod
                   <FormItem>
                     <FormLabel>Total Budget</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} />
+                      <div className="relative">
+                        {/* <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">R</span> */}
+                        <Input
+                          placeholder="0"
+                          {...field}
+                          className="pl-54"
+                          value={((field.value as any) === 0 || (field.value as any) === "") ? "" : (field.value !== undefined && field.value !== null ? field.value.toLocaleString() : "")}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/,/g, "").replace(/R\s?/, "");
+                            if (val === "") {
+                              field.onChange("");
+                            } else if (!isNaN(Number(val))) {
+                              field.onChange(Number(val));
+                            }
+                          }}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -359,7 +375,16 @@ export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingMod
                   <FormItem>
                     <FormLabel>FX Rate</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" {...field} />
+                      <Input
+                        type="number"
+                        step="0.01"
+                        {...field}
+                        value={(field.value as any) === 0 ? "" : field.value}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === "" ? "" : Number(val));
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -395,7 +420,17 @@ export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingMod
                   <FormItem>
                     <FormLabel>Retention Rate (%)</FormLabel>
                     <FormControl>
-                      <Input max={10} type="number" step="0.1" {...field} />
+                      <Input
+                        max={10}
+                        type="number"
+                        step="0.1"
+                        {...field}
+                        value={(field.value as any) === 0 ? "" : field.value}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === "" ? "" : Number(val));
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -408,7 +443,17 @@ export function OnboardingModal({ isOpen, onOpenChange, project }: OnboardingMod
                   <FormItem>
                     <FormLabel>VAT Rate (%)</FormLabel>
                     <FormControl>
-                      <Input max={25} type="number" step="0.1" {...field} />
+                      <Input
+                        max={25}
+                        type="number"
+                        step="0.1"
+                        {...field}
+                        value={(field.value as any) === 0 ? "" : field.value}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          field.onChange(val === "" ? "" : Number(val));
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

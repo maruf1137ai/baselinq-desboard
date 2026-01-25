@@ -220,9 +220,9 @@ const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
         </Button>
       </div>
 
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
+      <div className="rounded-lg border border-gray-200">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="divide-y divide-gray-200 w-full">
             <thead className="bg-gray-50/70">
               <tr>
                 {[
@@ -236,9 +236,8 @@ const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                   <th
                     key={header}
                     scope="col"
-                    className={`px-6 py-4 text-left text-sm text-[#6B7280] font-normal uppercase ${
-                      header === "Actions" ? "text-center" : ""
-                    }`}>
+                    className={`px-6 py-4 text-left text-sm text-[#6B7280] font-normal uppercase ${header === "Actions" ? "text-center" : ""
+                      }`}>
                     {header}
                   </th>
                 ))}
@@ -250,7 +249,7 @@ const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                   key={entry.id}
                   className="hover:bg-gray-50/50 transition-colors duration-150 text-[#1A1A1A]">
                   <td className="px-6 py-4 whitespace-nowrap text-base text-[#1A1A1A] h">
-                    <div className="-full my-auto flex items-center gap-5">
+                    <div className="my-auto flex items-center gap-5">
                       <img
                         src="/images/profile-img-4.png"
                         alt=""

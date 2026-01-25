@@ -1,18 +1,61 @@
+import React, { useMemo } from 'react';
 import { DollarSign } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import SaveMoney from './icons/SaveMoney';
+import { useProjects } from '@/supabse/hook/useProject';
+import { format, differenceInDays, isAfter, parseISO } from 'date-fns';
 
-const budgetData = [
-  { name: 'Development', value: 45000, percentage: 45, color: '#8081F6' },
-  { name: 'Design', value: 18000, percentage: 18, color: '#10B981' },
-  { name: 'Marketing', value: 22000, percentage: 22, color: '#F97316' },
-  { name: 'Operations', value: 15000, percentage: 15, color: '#6B7280' },
-];
 
-const totalBudget = 100000;
+export function BudgetBreakdownCard({ progress: propProgress, daysStatus: propDaysStatus }) {
+  const { data: projects = [], isLoading } = useProjects();
+  const selectedProjectId = localStorage.getItem("selectedProjectId");
+  const selectedProject = projects.find((project: any) => project.id === selectedProjectId);
 
-export function BudgetBreakdownCard({ progress, daysStatus }) {
+  const dynamicTimelineData = useMemo(() => {
+    if (!selectedProject) {
+      return {
+        progress: propProgress,
+        daysStatus: propDaysStatus
+      };
+    }
+
+    const start = parseISO(selectedProject.start_date);
+    const end = parseISO(selectedProject.end_date);
+    const now = new Date();
+
+    const totalDays = differenceInDays(end, start);
+    const elapsedDays = differenceInDays(now, start);
+
+    let progress = 0;
+    if (isAfter(now, end)) {
+      progress = 100;
+    } else if (isAfter(now, start)) {
+      progress = Math.round((elapsedDays / totalDays) * 100);
+    }
+
+    const daysRemaining = differenceInDays(end, now);
+    const daysStatus = daysRemaining >= 0
+      ? `${daysRemaining} days remaining`
+      : `${Math.abs(daysRemaining)} days behind`;
+
+    return {
+      progress: Math.min(100, Math.max(0, progress)),
+      daysStatus
+    };
+  }, [selectedProject, propProgress, propDaysStatus]);
+
+  const { progress, daysStatus } = dynamicTimelineData;
+
+  const projectTotalBudget = selectedProject?.total_budget || 0;
+
+  const dynamicBudgetData = [
+    { name: 'Development', value: projectTotalBudget * 0.45, percentage: 45, color: '#8081F6' },
+    { name: 'Design', value: projectTotalBudget * 0.18, percentage: 18, color: '#10B981' },
+    { name: 'Marketing', value: projectTotalBudget * 0.22, percentage: 22, color: '#F97316' },
+    { name: 'Operations', value: projectTotalBudget * 0.15, percentage: 15, color: '#6B7280' },
+  ];
+
   return (
     <Card>
       <CardContent className="p-5">
@@ -34,29 +77,29 @@ export function BudgetBreakdownCard({ progress, daysStatus }) {
             <div className="relative w-56 h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={budgetData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={-1} dataKey="value">
-                    {budgetData.map((entry, index) => (
+                  <Pie data={dynamicBudgetData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={-1} dataKey="value">
+                    {dynamicBudgetData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="text-lg text-[#111827]">${totalBudget.toLocaleString()}</p>
+                <p className="text-lg text-[#111827]">R {projectTotalBudget.toLocaleString()}</p>
                 <p className="text-xs text-[#6B7280]">Total Budget</p>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col justify-center space-y-4 w-full col-span-7">
-            {budgetData.map(item => (
+            {dynamicBudgetData.map(item => (
               <div key={item.name} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   <span className="text-sm text-[#111827]">{item.name}</span>
                 </div>
                 <span className="text-sm text-[#111827]">
-                  ${item.value.toLocaleString()} <span className="text-xs text-[#6B7280]">({item.percentage}%)</span>
+                  R {item.value.toLocaleString()} <span className="text-xs text-[#6B7280]">({item.percentage}%)</span>
                 </span>
               </div>
             ))}

@@ -16,14 +16,16 @@ import Asterisk from '@/components/icons/Asterisk';
 import CashIcon from '@/components/icons/CashIcon';
 import Calander2 from '@/components/icons/Calander2';
 import useTask from "@/supabse/hook/useTask";
+import { useUser } from "@/supabse/hook/useUser";
 
 const icons = ['/images/cash-01.png', '/images/calendar-02.png', '/images/shield-01.png', '/images/asterisk-02.png'];
 
 const Index = () => {
   const [projectId, setProjectId] = useState(() => localStorage.getItem("selectedProjectId") || undefined);
-  
+
   const { data: tasks = [], isLoading: loadingTasks } = useTask(projectId);
   const { data: projectsOverview, isLoading: loadingProjectsOverview } = useFetchData('project-overview/');
+  const { data: user } = useUser(); // New hook usage
 
   useEffect(() => {
     const handleProjectChange = () => {
@@ -48,7 +50,7 @@ const Index = () => {
         <div>
           {/* <p className="text-base text-gray3 mb-1">Dashboard</p>
           <h1 className="text-3xl  tracking-tight text-foreground">Project Overview</h1> */}
-          <p className="text-3xl  tracking-tight text-foreground">Welcome , Michael </p>
+          <p className="text-3xl  tracking-tight text-foreground capitalize">Welcome , {user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User"} </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -92,7 +94,7 @@ const Index = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-0 bg-white p-[7px] mx-2 rounded-[6px] max-h-[400px] overflow-y-auto">
-               {loadingTasks ? (
+              {loadingTasks ? (
                 <div className="p-4 text-center text-gray-500">Loading activity...</div>
               ) : recentActivity.length > 0 ? (
                 recentActivity.map((task: any) => (

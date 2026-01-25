@@ -41,7 +41,7 @@ export default function SIForm({ setOpen }: any) {
   const { mutateAsync } = useMutation({
     mutationFn: (newTask: any) => addNewTask({ newTask }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task"] });
       toast.success("Success! SI created successfully");
       setOpen(false);
     },
@@ -65,14 +65,14 @@ export default function SIForm({ setOpen }: any) {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const uploadAllFiles = async () => {
+  const uploadAllFiles = async (projectId: string) => {
     if (!selectedFiles.length) return [];
     setUploading(true);
     const uploaded: { name: string; url: string }[] = [];
 
     for (const file of selectedFiles) {
       try {
-        const url = await uploadFile(file);
+        const url = await uploadFile(file, projectId);
         uploaded.push({ name: file.name, url });
       } catch (err) {
         console.error("Error uploading file:", file.name, err);
@@ -101,7 +101,7 @@ export default function SIForm({ setOpen }: any) {
     setLoading(true);
 
     try {
-      const files = await uploadAllFiles();
+      const files = await uploadAllFiles(projectId);
 
       const formatUrgency = (u: string) => u ? u.charAt(0).toUpperCase() + u.slice(1) : "Medium";
 
@@ -119,6 +119,7 @@ export default function SIForm({ setOpen }: any) {
         "VO Reference": formData.voReference,
         Cost: formData.costImpact,
         description: files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : "",
+        impact: { time_impact: '20', cost_impact: '78174', score: '11/100' },
       };
 
       await mutateAsync(payload);

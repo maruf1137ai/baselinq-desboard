@@ -11,6 +11,58 @@ import Spark from '@/components/icons/Spark';
 import { useNavigate } from 'react-router-dom';
 import useTask, { useUpdateTask } from '@/supabse/hook/useTask';
 import { toast } from 'sonner';
+import CreateRequestDialog from '@/components/header/CreateRequestDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const btns = [
+  {
+    code: "VO",
+    title: "VO - Variation Order",
+    description: "Request to modify scope, cost, or materials.",
+    time: "Just now",
+    active: false,
+  },
+  {
+    code: "SI",
+    title: "SI - Site Instruction",
+    description: "Instruction issued directly for immediate site work.",
+    time: "5 minutes ago",
+    active: false,
+  },
+  {
+    code: "RFI",
+    title: "RFI - Request for Information",
+    description: "Clarification requested regarding project details.",
+    time: "10 minutes ago",
+    active: false,
+  },
+  {
+    code: "DC",
+    title: "DC - Delay Claim",
+    description: "Request for extension of time due to delays.",
+    time: "15 minutes ago",
+    active: false,
+  },
+  {
+    code: "CPI",
+    title: "CPI - Critical Path Item",
+    description: "Task affecting the critical path timeline.",
+    time: "20 minutes ago",
+    active: false,
+  },
+  {
+    code: "GI",
+    title: "GI - General Instruction",
+    description: "General instruction for work or processes.",
+    time: "30 minutes ago",
+    active: false,
+  },
+];
 
 function TaskCard({ task, isDragging }: any) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
@@ -94,7 +146,7 @@ function TaskCard({ task, isDragging }: any) {
   );
 }
 
-function Column({ id, title, count, tasks }: any) {
+function Column({ id, title, count, tasks, onAddClick }: any) {
   const { setNodeRef } = useSortable({ id });
 
   return (
@@ -107,7 +159,10 @@ function Column({ id, title, count, tasks }: any) {
               {count}
             </Badge>
           </div>
-          <button className="text-[#717784] hover:text-gray-600">
+          <button
+            onClick={onAddClick}
+            className="text-[#717784] hover:text-gray-600"
+          >
             <Plus className="h-4 w-4" />
           </button>
         </div>
@@ -138,6 +193,9 @@ export default function Task() {
 
   const [activeId, setActiveId] = useState(null);
   const [activeStartContainer, setActiveStartContainer] = useState(null);
+  const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+  const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
+  const [selectedType, setSelectedType] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -280,9 +338,9 @@ export default function Task() {
               onDragEnd={handleDragEnd}
             >
               <div className="flex gap-6 min-w-min">
-                <Column id="todo" title="To Do" count={tasks.todo.length} tasks={tasks.todo} />
-                <Column id="inReview" title="In Review" count={tasks.inReview.length} tasks={tasks.inReview} />
-                <Column id="done" title="Done" count={tasks.done.length} tasks={tasks.done} />
+                <Column id="todo" title="To Do" count={tasks.todo.length} tasks={tasks.todo} onAddClick={() => setIsSelectionOpen(true)} />
+                <Column id="inReview" title="In Review" count={tasks.inReview.length} tasks={tasks.inReview} onAddClick={() => setIsSelectionOpen(true)} />
+                <Column id="done" title="Done" count={tasks.done.length} tasks={tasks.done} onAddClick={() => setIsSelectionOpen(true)} />
               </div>
 
               <DragOverlay>
@@ -296,6 +354,43 @@ export default function Task() {
       ) : (
         <div className="p-8 text-center text-gray-500">Please select a project from the sidebar</div>
       )}
+      <Dialog open={isSelectionOpen} onOpenChange={setIsSelectionOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white p-0 overflow-hidden rounded-[13px]">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-base font-medium">Select Request Type</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col">
+            {btns.map((item, index) => (
+              <div
+                key={index}
+                onClick={() => {
+                  setSelectedType(item.title);
+                  setIsSelectionOpen(false);
+                  setIsRequestDialogOpen(true);
+                }}
+                className="border-b border-[#EDEDED] p-4 hover:bg-[#E8F1FF4D] transition cursor-pointer last:border-b-0 group"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[#1A1A1A] group-hover:text-primary transition-colors">
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-[#717784] mt-1 leading-relaxed">
+                      {item.description}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <CreateRequestDialog
+        open={isRequestDialogOpen}
+        setOpen={setIsRequestDialogOpen}
+        selectedType={selectedType}
+      />
     </DashboardLayout>
   );
 }

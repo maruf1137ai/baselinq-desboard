@@ -39,7 +39,7 @@ export default function GIForm({ setOpen }: any) {
   const { mutateAsync } = useMutation({
     mutationFn: (newTask: any) => addNewTask({ newTask }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task"] });
       toast.success("Success! GI created successfully");
       setOpen(false);
     },
@@ -63,14 +63,14 @@ export default function GIForm({ setOpen }: any) {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const uploadAllFiles = async () => {
+  const uploadAllFiles = async (projectId: string) => {
     if (!selectedFiles.length) return [];
     setUploading(true);
     const uploaded: { name: string; url: string }[] = [];
 
     for (const file of selectedFiles) {
       try {
-        const url = await uploadFile(file);
+        const url = await uploadFile(file, projectId);
         uploaded.push({ name: file.name, url });
       } catch (err) {
         console.error("Error uploading file:", file.name, err);
@@ -99,7 +99,7 @@ export default function GIForm({ setOpen }: any) {
     setLoading(true);
 
     try {
-      const files = await uploadAllFiles();
+      const files = await uploadAllFiles(projectId);
 
       const payload = {
         project_id: projectId,
@@ -113,6 +113,7 @@ export default function GIForm({ setOpen }: any) {
         Applicable_To: formData.applicableTo,
         Compliance: formData.complianceRequired,
         description: files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : "",
+        impact: { time_impact: '20', cost_impact: '78174', score: '11/100' },
       };
 
       await mutateAsync(payload);

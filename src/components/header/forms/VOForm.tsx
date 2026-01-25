@@ -28,7 +28,7 @@ export default function VOForm({ setOpen }: any) {
   const { mutateAsync } = useMutation({
     mutationFn: (newTask: any) => addNewTask({ newTask }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task"] });
       toast.success("Success! VO created successfully");
       setOpen(false);
     },
@@ -64,14 +64,14 @@ export default function VOForm({ setOpen }: any) {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const uploadAllFiles = async () => {
+  const uploadAllFiles = async (projectId: string) => {
     if (!selectedFiles.length) return [];
     setUploading(true);
     const uploaded: { name: string; url: string }[] = [];
 
     for (const file of selectedFiles) {
       try {
-        const url = await uploadFile(file);
+        const url = await uploadFile(file, projectId);
         uploaded.push({ name: file.name, url });
       } catch (err) {
         console.error("Error uploading file:", file.name, err);
@@ -100,7 +100,7 @@ export default function VOForm({ setOpen }: any) {
     setLoading(true);
 
     try {
-      const files = await uploadAllFiles();
+      const files = await uploadAllFiles(projectId);
 
       const totalCostVal = items.reduce((acc, item) => acc + (item.qty || 0) * (item.rate || 0), 0);
       const itemsDetails = items.map(i => `- ${i.description} (x${i.qty}) @ R${i.rate} = R${((i.qty || 0) * (i.rate || 0)).toFixed(2)}`).join("\n");
@@ -124,6 +124,7 @@ ${files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : ""}
         Discipline: discipline,
         Cost: `R${totalCostVal.toFixed(2)}`,
         description: fullDescription,
+        impact: { time_impact: '20', cost_impact: '78174', score: '11/100' },
       };
 
       await mutateAsync(payload);
@@ -188,9 +189,9 @@ ${files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : ""}
               <Label>Quantity</Label>
               <Input
                 type="number"
-                value={item.qty}
+                value={(item.qty as any) === 0 ? "" : item.qty}
                 onChange={(e) =>
-                  updateField(index, "qty", Number(e.target.value))
+                  updateField(index, "qty", e.target.value === "" ? "" : Number(e.target.value))
                 }
               />
             </div>
@@ -199,9 +200,9 @@ ${files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : ""}
               <Label>Unit Rate</Label>
               <Input
                 type="number"
-                value={item.rate}
+                value={(item.rate as any) === 0 ? "" : item.rate}
                 onChange={(e) =>
-                  updateField(index, "rate", Number(e.target.value))
+                  updateField(index, "rate", e.target.value === "" ? "" : Number(e.target.value))
                 }
               />
             </div>

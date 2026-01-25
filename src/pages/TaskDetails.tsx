@@ -29,6 +29,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Link, useParams } from 'react-router-dom';
 import { RequestInfoDialog } from '@/components/commons/RequestInfoDialog';
 import useTask, { useUpdateTask } from '@/supabse/hook/useTask';
+import { useUser } from '@/supabse/hook/useUser';
 import { toast } from 'sonner';
 
 const taskDataMap = {
@@ -334,6 +335,7 @@ export default function TaskDetails() {
   const [projectId, setProjectId] = useState(() => localStorage.getItem("selectedProjectId") || undefined);
   const { taskId } = useParams();
   const { data, isLoading } = useTask(projectId);
+  const { data: user } = useUser();
   const { mutateAsync: updateTask } = useUpdateTask();
   const [currentTask, setCurrentTask] = useState<any>(null);
   const [activeFormats, setActiveFormats] = useState({
@@ -348,22 +350,30 @@ export default function TaskDetails() {
 
   const handleRequestInfoSubmit = async (requestData: any) => {
     if (!currentTask) return;
-    
-    const currentRequests = currentTask.request_info && Array.isArray(currentTask.request_info) 
-      ? currentTask.request_info 
+
+    const currentRequests = currentTask.request_info && Array.isArray(currentTask.request_info)
+      ? currentTask.request_info
       : [];
-      
-    const updatedRequests = [...currentRequests, requestData];
-    
+
+    const userName = user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.user_metadata?.username ||
+      user?.email?.split('@')[0] ||
+      "User";
+    const updatedRequests = [...currentRequests, { ...requestData, senderName: userName }];
+
     try {
-      await updateTask({ 
-        id: currentTask.id, 
-        request_info: updatedRequests 
+      await updateTask({
+        id: currentTask.id,
+        request_info: updatedRequests
       });
       toast.success("Request sent successfully");
-      
-      // Optimistically update local state if needed, or rely on invalidation
-      setCurrentTask((prev: any) => ({...prev, request_info: updatedRequests}));
+
+      // Optimistically update local state
+      setCurrentTask((prev: any) => ({
+        ...prev,
+        request_info: updatedRequests
+      }));
     } catch (err) {
       console.error(err);
       toast.error("Failed to send request");
@@ -377,7 +387,7 @@ export default function TaskDetails() {
     }
 
     setIsLoadingAI(true);
-    
+
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -408,16 +418,16 @@ export default function TaskDetails() {
 
       const data = await response.json();
       const aiGeneratedResponse = data.choices[0].message.content;
-      
+
       // Store the AI response in state
       setAiResponse(aiGeneratedResponse);
       console.log("AI Response stored in state:", aiGeneratedResponse);
-      
+
       // Insert the AI response into the editor
       if (editor) {
         editor.commands.setContent(aiGeneratedResponse);
       }
-      
+
       toast.success("AI response generated successfully");
     } catch (error) {
       console.error('Error fetching AI response:', error);
@@ -432,8 +442,8 @@ export default function TaskDetails() {
     const task = data.find((t: any) => t.id === taskId);
     setCurrentTask(task);
   }, [taskId, data, isLoading]);
-  
-  console.log("data",data);
+
+  console.log("data", currentTask);
 
   // Normalize task data for display
   const displayTask = currentTask ? {
@@ -455,7 +465,7 @@ export default function TaskDetails() {
       costImpact: currentTask.Cost,
       description: currentTask.description,
       causeCategory: currentTask.Cause,
-      requestedExtension: currentTask.Extension, 
+      requestedExtension: currentTask.Extension,
       effectiveDate: currentTask.Effective_Date,
       applicableTo: currentTask.Applicable_To,
       complianceRequired: currentTask.Compliance,
@@ -465,32 +475,37 @@ export default function TaskDetails() {
       impactOnSchedule: "See description",
     },
     question: {
-        text: currentTask.Question || currentTask.description || currentTask.Instruction || "",
-        tags: []
+      text: currentTask.Question || currentTask.description || currentTask.Instruction || "",
+      tags: []
     },
     actionRequests: currentTask?.request_info || [],
     timeline: {
-        current: currentTask.status || 'Pending',
-        stages: ['Pending', 'In Review', 'Approved', 'Closed'],
+      current: currentTask.status || 'Pending',
+      stages: ['Pending', 'In Review', 'Approved', 'Closed'],
     },
     deadlines: {
-        replyDue: currentTask.due_date ? new Date(currentTask.due_date).toLocaleDateString() : 'N/A',
-        contractWindow: '14 days',
+      replyDue: currentTask.due_date ? new Date(currentTask.due_date).toLocaleDateString() : 'N/A',
+      contractWindow: '14 days',
     },
     impact: {
-        time: `${Math.floor(Math.random() * 30)} days`,
-        cost: `R ${Math.floor(Math.random() * 100000)}`,
-        riskScore: Math.floor(Math.random() * 100),
-        riskMax: 100,
+      time: currentTask.impact?.time_impact ? `${currentTask.impact.time_impact} days` : 'N/A',
+      cost: currentTask.impact?.cost_impact ? `R ${Number(currentTask.impact.cost_impact).toLocaleString()}` : 'R 0',
+      riskScore: currentTask.impact?.score ? parseInt(currentTask.impact.score.split('/')[0]) : 0,
+      riskMax: currentTask.impact?.score ? parseInt(currentTask.impact.score.split('/')[1]) : 100,
     },
     linked: [],
     audit: [
-        { action: 'Task Created', date: new Date(currentTask.created_at).toLocaleDateString(), isAI: false }
+      ...(currentTask.request_info || []).map((req: any) => ({
+        action: `Action request sent to ${req.recipient} by ${req.senderName || user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}`,
+        date: new Date(req.createdAt || req.date).toLocaleDateString(),
+        isAI: false
+      })),
+      ...(currentTask.audit || [])
     ],
   } : (taskDataMap[taskId as keyof typeof taskDataMap] || taskDataMap['RFI-001']);
 
-  const currentStageIndex = displayTask.timeline.stages.indexOf(displayTask.timeline.current) !== -1 
-    ? displayTask.timeline.stages.indexOf(displayTask.timeline.current) 
+  const currentStageIndex = displayTask.timeline.stages.indexOf(displayTask.timeline.current) !== -1
+    ? displayTask.timeline.stages.indexOf(displayTask.timeline.current)
     : 0;
 
   const editor = useEditor({
@@ -559,7 +574,7 @@ export default function TaskDetails() {
   }, [editor]);
 
   if (isLoading && !currentTask && !taskDataMap[taskId as keyof typeof taskDataMap]) {
-      return <div className="p-8 text-center">Loading task details...</div>;
+    return <div className="p-8 text-center">Loading task details...</div>;
   }
 
   return (
@@ -648,10 +663,10 @@ export default function TaskDetails() {
                       <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.question}</p>
                     </div>
                     {displayTask.formFields.description && (
-                         <div>
-                            <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
-                            <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
-                         </div>
+                      <div>
+                        <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
+                        <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -689,11 +704,11 @@ export default function TaskDetails() {
                         <p className="text-sm text-[#1B1C1F] mt-1">{displayTask.formFields.costImpact}</p>
                       </div>
                     </div>
-                     {displayTask.formFields.description && (
-                         <div>
-                            <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
-                            <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
-                         </div>
+                    {displayTask.formFields.description && (
+                      <div>
+                        <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
+                        <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -709,39 +724,39 @@ export default function TaskDetails() {
                       <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Description</label>
                       <p className="text-sm text-[#4B5563] leading-relaxed mt-1 whitespace-pre-wrap">{displayTask.formFields.description}</p>
                     </div>
-                    
+
                     {displayTask.formFields.items && (
-                    <div>
-                      <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide mb-2 block">Line Items</label>
-                      <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full">
-                          <thead className="bg-[#F9FAFB] border-b">
-                            <tr>
-                              <th className="text-left text-xs font-medium text-[#6B7280] px-4 py-2">Description</th>
-                              <th className="text-right text-xs font-medium text-[#6B7280] px-4 py-2">Quantity</th>
-                              <th className="text-right text-xs font-medium text-[#6B7280] px-4 py-2">Unit Rate</th>
-                              <th className="text-right text-xs font-medium text-[#6B7280] px-4 py-2">Total</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayTask.formFields.items?.map((item: any, idx: number) => (
-                              <tr key={idx} className="border-b last:border-0">
-                                <td className="text-sm text-[#1B1C1F] px-4 py-3">{item.description}</td>
-                                <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">{item.qty}</td>
-                                <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">R {item.rate.toLocaleString()}</td>
-                                <td className="text-sm font-medium text-[#1B1C1F] px-4 py-3 text-right">R {(item.qty * item.rate).toLocaleString()}</td>
+                      <div>
+                        <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide mb-2 block">Line Items</label>
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full">
+                            <thead className="bg-[#F9FAFB] border-b">
+                              <tr>
+                                <th className="text-left text-xs font-medium text-[#6B7280] px-4 py-2">Description</th>
+                                <th className="text-right text-xs font-medium text-[#6B7280] px-4 py-2">Quantity</th>
+                                <th className="text-right text-xs font-medium text-[#6B7280] px-4 py-2">Unit Rate</th>
+                                <th className="text-right text-xs font-medium text-[#6B7280] px-4 py-2">Total</th>
                               </tr>
-                            ))}
-                            <tr className="bg-[#F9FAFB] font-medium">
-                              <td colSpan={3} className="text-sm text-[#1B1C1F] px-4 py-3 text-right">Total Estimated Cost:</td>
-                              <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">
-                                R {displayTask.formFields.items?.reduce((sum: number, item: any) => sum + (item.qty * item.rate), 0).toLocaleString()}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {displayTask.formFields.items?.map((item: any, idx: number) => (
+                                <tr key={idx} className="border-b last:border-0">
+                                  <td className="text-sm text-[#1B1C1F] px-4 py-3">{item.description}</td>
+                                  <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">{item.qty}</td>
+                                  <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">R {item.rate.toLocaleString()}</td>
+                                  <td className="text-sm font-medium text-[#1B1C1F] px-4 py-3 text-right">R {(item.qty * item.rate).toLocaleString()}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-[#F9FAFB] font-medium">
+                                <td colSpan={3} className="text-sm text-[#1B1C1F] px-4 py-3 text-right">Total Estimated Cost:</td>
+                                <td className="text-sm text-[#1B1C1F] px-4 py-3 text-right">
+                                  R {displayTask.formFields.items?.reduce((sum: number, item: any) => sum + (item.qty * item.rate), 0).toLocaleString()}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
-                    </div>
                     )}
                   </div>
                 )}
@@ -827,11 +842,11 @@ export default function TaskDetails() {
                         </Badge>
                       </div>
                     </div>
-                     {displayTask.formFields.description && (
-                         <div>
-                            <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
-                            <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
-                         </div>
+                    {displayTask.formFields.description && (
+                      <div>
+                        <label className="text-xs font-medium text-[#6B7280] uppercase tracking-wide">Attachments</label>
+                        <p className="text-sm text-[#4B5563] leading-relaxed whitespace-pre-line mt-1">{displayTask.formFields.description}</p>
+                      </div>
                     )}
                   </div>
                 )}
@@ -904,7 +919,7 @@ export default function TaskDetails() {
                     <Button variant="outline" className="text-sm">
                       Save Draft
                     </Button>
-                    <button 
+                    <button
                       onClick={fetchAIResponse}
                       disabled={isLoadingAI}
                       className="bg-gray-900 flex items-center gap-3 px-3 py-2.5 rounded-[8px] hover:bg-gray-800 text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"

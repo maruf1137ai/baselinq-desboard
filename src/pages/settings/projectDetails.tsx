@@ -125,6 +125,10 @@ const ProjectDetails = () => {
                 <div className="text-xs text-[#6B7280] mb-1">End Date</div>
                 <div className="text-base text-[#1A1A1A]">{selectedProject?.end_date || "N/A"}</div>
               </div>
+              <div className="item">
+                <div className="text-xs text-[#6B7280] mb-1">Total Budget</div>
+                <div className="text-base text-[#1A1A1A]">R {selectedProject?.total_budget?.toLocaleString() || "0"}</div>
+              </div>
               <div className="item col-span-2">
                 <div className="text-xs text-[#6B7280] mb-1">Description</div>
                 <div className="text-base text-[#1A1A1A]">{selectedProject?.description || "N/A"}</div>

@@ -67,6 +67,15 @@ export function DashboardSidebar() {
   );
 
   useEffect(() => {
+    const handleProjectChange = () => {
+      setSelectedProjectId(localStorage.getItem("selectedProjectId") || "");
+    };
+
+    window.addEventListener("project-change", handleProjectChange);
+    return () => window.removeEventListener("project-change", handleProjectChange);
+  }, []);
+
+  useEffect(() => {
     if (!isLoading && projects.length === 0) {
       setShowOnboarding(true);
     } else if (projects.length > 0 && !selectedProjectId) {
