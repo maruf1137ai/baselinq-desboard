@@ -1,7 +1,10 @@
+import React from 'react';
 import { Clock } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import ProjectTimeline from './icons/ProjectTimeline';
+import { useProjects } from '@/supabse/hook/useProject';
+import { format, differenceInDays, isBefore, isAfter, parseISO } from 'date-fns';
 
 interface ProjectTimelineCardProps {
   startDate: string;
@@ -11,7 +14,52 @@ interface ProjectTimelineCardProps {
   daysStatus: string;
 }
 
-export function ProjectTimelineCard({ startDate, currentDate, deadline, progress, daysStatus }: ProjectTimelineCardProps) {
+export function ProjectTimelineCard({ startDate: propStartDate, currentDate: propCurrentDate, deadline: propDeadline, progress: propProgress, daysStatus: propDaysStatus }: ProjectTimelineCardProps) {
+  const { data: projects = [], isLoading } = useProjects();
+  const selectedProjectId = localStorage.getItem("selectedProjectId");
+  const selectedProject = projects.find((project: any) => project.id === selectedProjectId);
+
+  const dynamicData = React.useMemo(() => {
+    if (!selectedProject) {
+      return {
+        startDate: propStartDate,
+        currentDate: propCurrentDate,
+        deadline: propDeadline,
+        progress: propProgress,
+        daysStatus: propDaysStatus
+      };
+    }
+
+    const start = parseISO(selectedProject.start_date);
+    const end = parseISO(selectedProject.end_date);
+    const now = new Date();
+
+    const totalDays = differenceInDays(end, start);
+    const elapsedDays = differenceInDays(now, start);
+
+    let progress = 0;
+    if (isAfter(now, end)) {
+      progress = 100;
+    } else if (isAfter(now, start)) {
+      progress = Math.round((elapsedDays / totalDays) * 100);
+    }
+
+    const daysRemaining = differenceInDays(end, now);
+    const daysStatus = daysRemaining >= 0
+      ? `${daysRemaining} days remaining`
+      : `${Math.abs(daysRemaining)} days behind`;
+
+    return {
+      startDate: format(start, 'MMM dd, yyyy'),
+      currentDate: format(now, 'MMM dd, yyyy'),
+      deadline: format(end, 'MMM dd, yyyy'),
+      progress: Math.min(100, Math.max(0, progress)),
+      daysStatus
+    };
+  }, [selectedProject, propStartDate, propCurrentDate, propDeadline, propProgress, propDaysStatus]);
+
+  const { startDate, currentDate, deadline, progress, daysStatus } = dynamicData;
+
   return (
     <Card>
       <CardContent className="p-5 bg-[#F3F2F0] border-0">

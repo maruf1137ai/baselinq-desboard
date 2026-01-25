@@ -28,7 +28,7 @@ export default function DCForm({ setOpen }: any) {
   const { mutateAsync } = useMutation({
     mutationFn: (newTask: any) => addNewTask({ newTask }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task"] });
       toast.success("Success! DC created successfully");
       setOpen(false);
     },
@@ -48,14 +48,14 @@ export default function DCForm({ setOpen }: any) {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const uploadAllFiles = async () => {
+  const uploadAllFiles = async (projectId: string) => {
     if (!selectedFiles.length) return [];
     setUploading(true);
     const uploaded: { name: string; url: string }[] = [];
 
     for (const file of selectedFiles) {
       try {
-        const url = await uploadFile(file);
+        const url = await uploadFile(file, projectId);
         uploaded.push({ name: file.name, url });
       } catch (err) {
         console.error("Error uploading file:", file.name, err);
@@ -84,7 +84,7 @@ export default function DCForm({ setOpen }: any) {
     setLoading(true);
 
     try {
-      const files = await uploadAllFiles();
+      const files = await uploadAllFiles(projectId);
 
       const payload = {
         project_id: projectId,
@@ -96,6 +96,7 @@ export default function DCForm({ setOpen }: any) {
         Cost: costImpact,
         Extension: requestedExtension,
         description: files.length > 0 ? `${description}\n\nAttachments: ${JSON.stringify(files)}` : description,
+        impact: { time_impact: '20', cost_impact: '78174', score: '11/100' },
       };
 
       await mutateAsync(payload);
@@ -156,8 +157,8 @@ export default function DCForm({ setOpen }: any) {
           className="mt-1"
           type="number"
           placeholder="Number of days"
-          value={requestedExtension}
-          onChange={(e) => setRequestedExtension(e.target.value)}
+          value={((requestedExtension as any) === "0" || (requestedExtension as any) === 0) ? "" : requestedExtension}
+          onChange={(e) => setRequestedExtension(e.target.value === "" ? "" : e.target.value)}
         />
       </div>
 

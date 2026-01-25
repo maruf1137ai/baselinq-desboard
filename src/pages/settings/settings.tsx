@@ -6,11 +6,11 @@ import { Outlet } from 'react-router-dom';
 const Settings = () => {
   return (
     <DashboardLayout padding="p-0">
-      <div className="h-full flex">
+      <div className="h-full flex w-full">
         <div className="border-border bg-white flex-shrink-0">
           <Sidebar />
         </div>
-        <div className="chatWindow flex-1 bg-[#F7F7F7]">
+        <div className="chatWindow flex-1 bg-[#F7F7F7] overflow-hidden">
           <Outlet />
         </div>
       </div>
