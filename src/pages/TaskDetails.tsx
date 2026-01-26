@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TiptapUnderline from '@tiptap/extension-underline';
 import TiptapLink from '@tiptap/extension-link';
+import Placeholder from '@tiptap/extension-placeholder';
 import { Card } from '@/components/ui/card';
 import BulletList from '@tiptap/extension-bullet-list';
 import ListItem from '@tiptap/extension-list-item';
@@ -387,6 +388,9 @@ export default function TaskDetails() {
     }
 
     setIsLoadingAI(true);
+    if (editor) {
+      editor.commands.setContent('');
+    }
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -400,15 +404,16 @@ export default function TaskDetails() {
           messages: [
             {
               role: 'system',
-              content: 'You are a construction principal agent, now draft a response from this action item and add the expected time impact, cost impact and risk score . Do not make it as an email reposone from ai . Remove any placeholder.'
+              content: 'You are a construction principal agent, now draft a response from this action item. Do not make it as an email reposone from ai. Remove any placeholder. reply as a plan text, do not add any title, subtitle, or any other formatting, response as ZAR (R)'
             },
             {
               role: 'user',
-              content: `Title: ${currentTask.title}\nDiscipline: ${currentTask.Discipline}\nDescription: ${currentTask.description || currentTask.Question || currentTask.Instruction || 'No description provided'}`
+              content: `Title: ${currentTask.title}\nDiscipline: ${currentTask.Discipline}\nDescription: ${currentTask.description || currentTask.Question || currentTask.Instruction || 'No description provided'} ${currentTask?.impact}`
             }
           ],
           temperature: 0.7,
-          max_tokens: 1000
+          max_tokens: 1000,
+          stream: true
         })
       });
 
@@ -416,24 +421,118 @@ export default function TaskDetails() {
         throw new Error(`API request failed with status ${response.status}`);
       }
 
-      const data = await response.json();
-      const aiGeneratedResponse = data.choices[0].message.content;
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let accumulatedResponse = "";
+      let hasStartedStreaming = false;
 
-      // Store the AI response in state
-      setAiResponse(aiGeneratedResponse);
-      console.log("AI Response stored in state:", aiGeneratedResponse);
+      if (!reader) throw new Error("No reader available");
 
-      // Insert the AI response into the editor
-      if (editor) {
-        editor.commands.setContent(aiGeneratedResponse);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const dataStr = line.slice(6);
+            if (dataStr === "[DONE]") break;
+
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices[0].delta?.content || "";
+
+              if (content && !hasStartedStreaming) {
+                setIsLoadingAI(false);
+                hasStartedStreaming = true;
+              }
+
+              accumulatedResponse += content;
+              if (editor && content) {
+                editor.commands.setContent(accumulatedResponse);
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
       }
 
-      toast.success("AI response generated successfully");
+      // Final state sync
+      setAiResponse(accumulatedResponse);
+      // toast.success("AI response generated successfully");
     } catch (error) {
       console.error('Error fetching AI response:', error);
       toast.error("Failed to generate AI response");
-    } finally {
       setIsLoadingAI(false);
+    }
+  };
+
+  const handleSubmitReply = async () => {
+    if (!editor || !currentTask) return;
+
+    const content = editor.getHTML();
+    if (content.replace(/<[^>]*>/g, '').trim() === '') {
+      toast.error("Please provide a response");
+      return;
+    }
+
+    const userName = user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.user_metadata?.username ||
+      user?.email?.split('@')[0] ||
+      "User";
+
+    const newResponse = {
+      content,
+      sender: userName,
+      date: new Date().toISOString(),
+      id: crypto.randomUUID()
+    };
+
+    const currentResponses = currentTask.responses && Array.isArray(currentTask.responses)
+      ? currentTask.responses
+      : [];
+
+    const updatedResponses = [...currentResponses, newResponse];
+
+    try {
+      await updateTask({
+        id: currentTask.id,
+        responses: updatedResponses
+      });
+      toast.success("Reply submitted successfully");
+      editor.commands.setContent('');
+
+      setCurrentTask((prev: any) => ({
+        ...prev,
+        responses: updatedResponses
+      }));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to submit reply");
+    }
+  };
+
+  const handleApproveTask = async () => {
+    if (!currentTask) return;
+
+    try {
+      await updateTask({
+        id: currentTask.id,
+        timeline_status: "Approved"
+      });
+      toast.success("Task approved successfully");
+
+      setCurrentTask((prev: any) => ({
+        ...prev,
+        timeline_status: "Approved"
+      }));
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to approve task");
     }
   };
 
@@ -443,7 +542,7 @@ export default function TaskDetails() {
     setCurrentTask(task);
   }, [taskId, data, isLoading]);
 
-  console.log("data", currentTask);
+  // console.log("data", currentTask);
 
   // Normalize task data for display
   const displayTask = currentTask ? {
@@ -454,6 +553,7 @@ export default function TaskDetails() {
     type: currentTask.type,
     creator: { name: 'User', role: 'Creator', badge: currentTask.type },
     watcher: { name: 'Watcher', role: 'Watcher' },
+    task_code: currentTask.task_code,
     formFields: {
       subject: currentTask.title,
       discipline: currentTask.Discipline,
@@ -480,7 +580,7 @@ export default function TaskDetails() {
     },
     actionRequests: currentTask?.request_info || [],
     timeline: {
-      current: currentTask.status || 'Pending',
+      current: currentTask.timeline_status || currentTask.status || 'Pending',
       stages: ['Pending', 'In Review', 'Approved', 'Closed'],
     },
     deadlines: {
@@ -500,9 +600,14 @@ export default function TaskDetails() {
         date: new Date(req.createdAt || req.date).toLocaleDateString(),
         isAI: false
       })),
+      ...(currentTask.responses || []).map((resp: any) => ({
+        action: `Response submitted by ${resp.sender}`,
+        date: new Date(resp.date).toLocaleDateString(),
+        isAI: false
+      })),
       ...(currentTask.audit || [])
     ],
-  } : (taskDataMap[taskId as keyof typeof taskDataMap] || taskDataMap['RFI-001']);
+  } as any : (taskDataMap[taskId as keyof typeof taskDataMap] || taskDataMap['RFI-001']) as any;
 
   const currentStageIndex = displayTask.timeline.stages.indexOf(displayTask.timeline.current) !== -1
     ? displayTask.timeline.stages.indexOf(displayTask.timeline.current)
@@ -524,8 +629,11 @@ export default function TaskDetails() {
           class: 'text-indigo-600 underline cursor-pointer',
         },
       }),
+      Placeholder.configure({
+        placeholder: 'Provide your formal response here...',
+      }),
     ],
-    content: '<p>Provide your formal response here...</p>',
+    content: '',
     editorProps: {
       attributes: {
         class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4',
@@ -596,7 +704,8 @@ export default function TaskDetails() {
                   <div className="flex-1">
                     <div className="flex items-center gap-4 mb-3">
                       <h1 className="text-base  text-[#1B1C1F]">{displayTask.title}</h1>
-                      <p className="text-[#6B7280] text-sm">{displayTask.displayId || displayTask.id}</p>
+                      {/* <p className="text-[#6B7280] text-sm">{displayTask.displayId || displayTask.id}</p> */}
+                      <p className="text-[#6B7280] text-sm">{`#${displayTask.type || 'TSK'}-${displayTask.task_code || displayTask.id.slice(0, 4)}`}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -864,6 +973,34 @@ export default function TaskDetails() {
                 </div>
               </Card>
 
+              {/* Previous Responses Section */}
+              {currentTask?.responses && currentTask.responses.length > 0 && (
+                <Card className="p-[25px] shadow-none pt-[22px] bg-white rounded-[14px] border-[#E7E9EB] mb-4">
+                  <h2 className="text-base font-medium text-[#0E1C2E] mb-5">Previous Responses</h2>
+                  <div className="space-y-3">
+                    {currentTask.responses.map((resp: any) => (
+                      <div key={resp.id} className="flex items-start gap-4 p-3 bg-white border rounded-[10px]">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-indigo-50 text-indigo-600 text-xs">
+                            {resp.sender?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-[#111827]">{resp.sender}</span>
+                            <span className="text-[11px] text-[#6B7280]">{new Date(resp.date).toLocaleString()}</span>
+                          </div>
+                          <div
+                            className="text-sm text-[#4B5563] prose prose-sm max-w-none mt-2"
+                            dangerouslySetInnerHTML={{ __html: resp.content }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
               {/* Response Section */}
               <Card className="p-[25px] shadow-none pt-[22px] bg-white rounded-[14px] border-[#E7E9EB]">
                 <h2 className="text-base  text-[#0E1C2E] mb-5">Response</h2>
@@ -897,24 +1034,33 @@ export default function TaskDetails() {
                   >
                     <List className="h-4 w-4 text-gray-600" />
                   </button>
-                  <Separator orientation="vertical" className="h-6 mx-2" />
-                  <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 rounded text-sm">
+                  {/* <Separator orientation="vertical" className="h-6 mx-2" /> */}
+                  {/* <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-100 rounded text-sm">
                     <Zap className="h-4 w-4 text-[#8081F6]" />
                     <span className="text-gray-700">Smart Actions</span>
-                  </button>
+                  </button> */}
                 </div>
 
                 {/* Editor */}
-                <div className="bg-gray-50 rounded-lg  border-[#F3F3F5] focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent">
+                <div className="bg-gray-50 rounded-lg border-[#F3F3F5] focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent relative">
+                  {isLoadingAI && (
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50/50 rounded-lg">
+                      <div className="ai-orb-loader">
+                        <div className="ai-orb-wave" />
+                        <div className="ai-orb-wave" />
+                        <div className="ai-orb-wave" />
+                      </div>
+                    </div>
+                  )}
                   <EditorContent editor={editor} className="text-sm text-[#717784]" />
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-between mt-4">
-                  <div className="flex items-center gap-2 text-[11px] text-[#6B7280]">
+                <div className="flex items-center justify-end mt-4">
+                  {/* <div className="flex items-center gap-2 text-[11px] text-[#6B7280]">
                     <Zap className="h-3.5 w-3.5" />
                     <span>Powered by Baseline Intelligence</span>
-                  </div>
+                  </div> */}
                   <div className="flex items-center gap-3">
                     <Button variant="outline" className="text-sm">
                       Save Draft
@@ -928,38 +1074,11 @@ export default function TaskDetails() {
                       {isLoadingAI ? 'Generating...' : 'Insert AI Draft'}
                     </button>
 
-                    <Button className="font-normal">Submit Reply</Button>
+                    <Button className="font-normal" onClick={handleSubmitReply}>Submit Reply</Button>
                   </div>
                 </div>
               </Card>
 
-              {/* Action Requests */}
-              <Card className="p-[25px] shadow-none pt-[22px] bg-white rounded-[14px] border-[#E7E9EB]">
-                <h2 className="text-base  text-[#0E1C2E] mb-5">Action Requests</h2>
-                <div className="space-y-3">
-                  {displayTask.actionRequests && displayTask.actionRequests.map((request: any) => (
-                    <div key={request.id} className="flex items-start gap-4 p-3 bg-white border rounded-[10px]">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-gray-200 text-gray-600 text-xs">DC</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 text-xs">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs  text-black">{request.recipient}</span>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-1">{request.role}</p>
-                        <p className="text-xs text-black">{request.task}</p>
-                        <p className="text-xs text-gray-500 mt-1">Due {new Date(request.date).toLocaleDateString()}</p>
-                      </div>
-                      <Badge className="bg-[#FFF7ED] text-[#F97316] py-1.5 px-3 hover:bg-orange-50 border-[#FED7AA] text-xs">
-                        Pending
-                      </Badge>
-                    </div>
-                  ))}
-
-                  <RequestInfoDialog wFull={true} onSubmit={handleRequestInfoSubmit} />
-                </div>
-
-              </Card>
             </div>
 
             {/* Right Column - Sidebar */}
@@ -1019,6 +1138,14 @@ export default function TaskDetails() {
                 </div>
               </Card>
 
+              <Button
+                className="w-full mt-4 font-normal"
+                onClick={handleApproveTask}
+                disabled={currentTask?.timeline_status === "Approved"}
+              >
+                {currentTask?.timeline_status === "Approved" ? "Approved" : "Approve"}
+              </Button>
+
               {/* Impact */}
               <Card className="p-[17px] rounded-[10px] text-[#6B7280] bg-white shadow-none border-[#E7E9EB]">
                 <h3 className="text-xs  text-[#6B7280] uppercase tracking-wide mb-3">Impact</h3>
@@ -1049,7 +1176,7 @@ export default function TaskDetails() {
               </Card>
 
               {/* Linked */}
-              <Card className="pt-4 bg-white shadow-none border-0">
+              {/* <Card className="pt-4 bg-white shadow-none border-0">
                 <h3 className="text-xs  text-[#6B7280] uppercase tracking-wide mb-3">Linked</h3>
                 <div className="space-y-2">
                   {displayTask.linked.map((item: any, i: any) => (
@@ -1072,7 +1199,7 @@ export default function TaskDetails() {
                     </div>
                   ))}
                 </div>
-              </Card>
+              </Card> */}
 
               {/* Audit */}
               <Card className="pt-4 bg-white shadow-none border-0">

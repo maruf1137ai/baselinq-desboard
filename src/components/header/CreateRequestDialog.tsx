@@ -16,15 +16,16 @@ export default function CreateRequestDialog({
   open,
   setOpen,
   selectedType,
+  initialStatus,
 }: any) {
   const renderForm = () => {
     if (!selectedType) return null;
 
-    if (selectedType.startsWith("RFI")) return <RFIForm setOpen={setOpen} />;
-    if (selectedType.startsWith("SI")) return <SIForm setOpen={setOpen} />;
-    if (selectedType.startsWith("VO")) return <VOForm setOpen={setOpen} />;
-    if (selectedType.startsWith("DC")) return <DCForm setOpen={setOpen} />;
-    if (selectedType.startsWith("GI")) return <GIForm setOpen={setOpen} />;
+    if (selectedType.startsWith("RFI")) return <RFIForm setOpen={setOpen} initialStatus={initialStatus} />;
+    if (selectedType.startsWith("SI")) return <SIForm setOpen={setOpen} initialStatus={initialStatus} />;
+    if (selectedType.startsWith("VO")) return <VOForm setOpen={setOpen} initialStatus={initialStatus} />;
+    if (selectedType.startsWith("DC")) return <DCForm setOpen={setOpen} initialStatus={initialStatus} />;
+    if (selectedType.startsWith("GI")) return <GIForm setOpen={setOpen} initialStatus={initialStatus} />;
 
     return null;
   };

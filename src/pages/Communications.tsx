@@ -11,10 +11,17 @@ const Communications = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
 
   useEffect(() => {
-    if (tasks?.length && !selectedTask) {
-      setSelectedTask(tasks[0]);
+    if (tasks?.length) {
+      if (!selectedTask) {
+        setSelectedTask(tasks[0]);
+      } else {
+        const updatedTask = tasks.find((t: any) => t.id === selectedTask.id);
+        if (updatedTask) {
+          setSelectedTask(updatedTask);
+        }
+      }
     }
-  }, [tasks, selectedTask]);
+  }, [tasks]);
 
   return (
     <DashboardLayout padding="p-0">

@@ -27,7 +27,7 @@ const initialValues = {
   costImpact: "",
 };
 
-export default function SIForm({ setOpen }: any) {
+export default function SIForm({ setOpen, initialStatus }: any) {
   const [formData, setFormData] = useState(initialValues);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -109,7 +109,7 @@ export default function SIForm({ setOpen }: any) {
         project_id: projectId,
         title: formData.title,
         type: "SI",
-        status: "Todo",
+        status: initialStatus || "Todo",
         priority: "Medium",
         Discipline: formData.discipline,
         Instruction: formData.instruction,
@@ -221,10 +221,10 @@ export default function SIForm({ setOpen }: any) {
             <SelectValue placeholder="Select range" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="under20k">Under 20k</SelectItem>
-            <SelectItem value="20-50k">20k - 50k</SelectItem>
-            <SelectItem value="50-100k">50k - 100k</SelectItem>
-            <SelectItem value="above100k">Above 100k</SelectItem>
+            <SelectItem value="0-20k">R 0 - 20K</SelectItem>
+            <SelectItem value="20-50k">R 20K - 50K</SelectItem>
+            <SelectItem value="50-100k">R 50K - 100K</SelectItem>
+            <SelectItem value="above100k">R Above 100K</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -9,7 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addNewTask, uploadFile } from "@/supabse/api";
 import { toast } from "sonner";
 
-export default function RFIForm({ setOpen }: any) {
+export default function RFIForm({ setOpen, initialStatus }: any) {
   const [subject, setSubject] = useState("");
   const [discipline, setDiscipline] = useState("");
   const [question, setQuestion] = useState("");
@@ -88,7 +88,7 @@ export default function RFIForm({ setOpen }: any) {
         project_id: projectId,
         title: subject,
         type: "RFI",
-        status: "Todo",
+        status: initialStatus || "Todo",
         priority: "Medium",
         Discipline: discipline,
         Question: question,

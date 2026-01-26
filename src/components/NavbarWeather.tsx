@@ -1,27 +1,32 @@
 import React, { useState, useEffect } from "react";
+import { useProjects } from "@/supabse/hook/useProject";
 
 const NavbarWeather = () => {
-  const [weather, setWeather] = useState(null);
-  const [error, setError] = useState(null);
+  const [weather, setWeather] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
 
-  const [projectLocation, setProjectLocation] = useState(localStorage.getItem("projectLocation"));
-
-  useEffect(() => {
-    const handleProjectChange = () => {
-      setProjectLocation(localStorage.getItem("projectLocation"));
-    };
-
-    window.addEventListener("project-change", handleProjectChange);
-    return () => window.removeEventListener("project-change", handleProjectChange);
-  }, []);
+  const selectedProjectId = localStorage.getItem("selectedProjectId");
+  const currentProject = projects.find((p: any) => p.id === selectedProjectId);
 
   useEffect(() => {
     const fetchWeather = async () => {
+      if (projectsLoading) return;
+
       try {
         let url = "";
-        if (projectLocation) {
-          url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(projectLocation)}&units=metric&appid=8dda08a209080b44cdc3566edffcfbc4`;
-        } else if (navigator.geolocation) {
+
+        // Priority 1: Use project coordinates if available
+        if (currentProject?.coordinates) {
+          const { lat, lng } = currentProject.coordinates;
+          url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=8dda08a209080b44cdc3566edffcfbc4`;
+        }
+        // Priority 2: Use project location name if available
+        else if (currentProject?.location) {
+          url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(currentProject.location)}&units=metric&appid=8dda08a209080b44cdc3566edffcfbc4`;
+        }
+        // Priority 3: Fallback to geolocation
+        else if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             async (position) => {
               const { latitude, longitude } = position.coords;
@@ -33,9 +38,9 @@ const NavbarWeather = () => {
             },
             () => setError("Unable to get location")
           );
-          return; // Exit and wait for geolocation callback
+          return;
         } else {
-          setError("Geolocation not supported and no project location set");
+          setError("No project location set and geolocation not supported");
           return;
         }
 
@@ -46,13 +51,13 @@ const NavbarWeather = () => {
           setWeather(data);
           setError(null);
         }
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message);
       }
     };
 
     fetchWeather();
-  }, [projectLocation]);
+  }, [currentProject, projectsLoading]);
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.9rem" }}>
