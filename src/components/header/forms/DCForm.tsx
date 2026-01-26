@@ -9,7 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addNewTask, uploadFile } from "@/supabse/api";
 import { toast } from "sonner";
 
-export default function DCForm({ setOpen }: any) {
+export default function DCForm({ setOpen, initialStatus }: any) {
   const [title, setTitle] = useState("");
   const [causeCategory, setCauseCategory] = useState("");
   const [costImpact, setCostImpact] = useState("");
@@ -90,7 +90,7 @@ export default function DCForm({ setOpen }: any) {
         project_id: projectId,
         title,
         type: "DC",
-        status: "Todo",
+        status: initialStatus || "Todo",
         priority: "Medium",
         Cause: causeCategory,
         Cost: costImpact,

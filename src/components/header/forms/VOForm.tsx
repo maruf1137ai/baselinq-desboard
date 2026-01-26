@@ -10,7 +10,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addNewTask, uploadFile } from "@/supabse/api";
 import { toast } from "sonner";
 
-export default function VOForm({ setOpen }: any) {
+export default function VOForm({ setOpen, initialStatus }: any) {
   const [title, setTitle] = useState("");
   const [discipline, setDiscipline] = useState("");
   const [description, setDescription] = useState("");
@@ -119,7 +119,7 @@ ${files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : ""}
         project_id: projectId,
         title,
         type: "VO",
-        status: "Todo",
+        status: initialStatus || "Todo",
         priority: "Medium",
         Discipline: discipline,
         Cost: `R${totalCostVal.toFixed(2)}`,

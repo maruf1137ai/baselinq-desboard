@@ -196,6 +196,7 @@ export default function Task() {
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
   const [isRequestDialogOpen, setIsRequestDialogOpen] = useState(false);
   const [selectedType, setSelectedType] = useState("");
+  const [preSelectedStatus, setPreSelectedStatus] = useState("Todo");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -338,9 +339,9 @@ export default function Task() {
               onDragEnd={handleDragEnd}
             >
               <div className="flex gap-6 min-w-min">
-                <Column id="todo" title="To Do" count={tasks.todo.length} tasks={tasks.todo} onAddClick={() => setIsSelectionOpen(true)} />
-                <Column id="inReview" title="In Review" count={tasks.inReview.length} tasks={tasks.inReview} onAddClick={() => setIsSelectionOpen(true)} />
-                <Column id="done" title="Done" count={tasks.done.length} tasks={tasks.done} onAddClick={() => setIsSelectionOpen(true)} />
+                <Column id="todo" title="To Do" count={tasks.todo.length} tasks={tasks.todo} onAddClick={() => { setPreSelectedStatus("Todo"); setIsSelectionOpen(true); }} />
+                <Column id="inReview" title="In Review" count={tasks.inReview.length} tasks={tasks.inReview} onAddClick={() => { setPreSelectedStatus("In Review"); setIsSelectionOpen(true); }} />
+                <Column id="done" title="Done" count={tasks.done.length} tasks={tasks.done} onAddClick={() => { setPreSelectedStatus("Done"); setIsSelectionOpen(true); }} />
               </div>
 
               <DragOverlay>
@@ -390,6 +391,7 @@ export default function Task() {
         open={isRequestDialogOpen}
         setOpen={setIsRequestDialogOpen}
         selectedType={selectedType}
+        initialStatus={preSelectedStatus}
       />
     </DashboardLayout>
   );

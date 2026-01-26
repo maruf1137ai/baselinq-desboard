@@ -25,7 +25,7 @@ const initialValues = {
   complianceRequired: "",
 };
 
-export default function GIForm({ setOpen }: any) {
+export default function GIForm({ setOpen, initialStatus }: any) {
   const [formData, setFormData] = useState(initialValues);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -105,7 +105,7 @@ export default function GIForm({ setOpen }: any) {
         project_id: projectId,
         title: formData.title,
         type: "GI",
-        status: "Todo",
+        status: initialStatus || "Todo",
         priority: "Medium",
         Discipline: formData.discipline,
         Instruction: formData.instruction,

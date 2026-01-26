@@ -48,21 +48,21 @@ export function ChatSidebar({ onNewChat, tasks, selectedTask, onSelectTask }: Ch
         }`}>
       <div className=" p-3">
         {/* Toggle button commented out in original, keeping it that way or as is */}
-        
+
         {open && (
           <>
             <div className="flex items-center gap-1.5">
               <div className="relative max-w-md flex-1 hidden md:block ">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground" />
-              <Input
-                placeholder="Search Channels"
-                className="pl-10 bg-[#F7F7F7] py-[12px] placeholder:text-[#6B6B6B] border-[#EDEDED] rounded-[11px]"
-              />
-              <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center gap-1 text-sm text-muted-foreground border border-[#EDEDED] bg-white p-[9px] rounded-[9px]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground" />
+                <Input
+                  placeholder="Search Channels"
+                  className="pl-10 bg-[#F7F7F7] py-[12px] placeholder:text-[#6B6B6B] border-[#EDEDED] rounded-[11px]"
+                />
+                {/* <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center gap-1 text-sm text-muted-foreground border border-[#EDEDED] bg-white p-[9px] rounded-[9px]">
                 <Command color="#000" className="h-[14px] w-[14px]" />
                 <span>K</span>
+              </div> */}
               </div>
-            </div>
               <button className="py-[15px] border rounded-[9px] px-[15px]">
                 <UserPlus size={14} />
               </button>
@@ -107,7 +107,7 @@ export function ChatSidebar({ onNewChat, tasks, selectedTask, onSelectTask }: Ch
         {open ? (
           <button className="flex items-center gap-2 text-sm text-[#0D0D0D] hover:text-foreground">
             <InviteMember />
-            <span>Invite members</span>
+            <span>Add members</span>
           </button>
         ) : (
           <Button variant="ghost" size="icon" className="h-8 w-8 mx-auto">
