@@ -81,8 +81,12 @@ export function ProjectTimelineCard({ startDate: propStartDate, currentDate: pro
           </div>
         </div>
 
-        <div className=" bg-white h-[142px] flex flex-col justify-between p-4 rounded-[6px]">
-          <div></div>
+        <div className=" bg-white flex flex-col justify-between p-4 rounded-[6px] relative">
+          <div className="flex justify-between px-1 h-[58px]">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="h-full w-[1px] bg-[#E5E7EB]" />
+            ))}
+          </div>
           <div className="flex flex-col gap-5">
             <Progress value={progress} className="h-2" />
             <div className="flex items-center justify-between text-sm">
