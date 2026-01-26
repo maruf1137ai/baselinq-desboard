@@ -78,7 +78,7 @@ function TaskCard({ task, isDragging }: any) {
     ? new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : (task.created_at ? new Date(task.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Date');
 
-  const displayId = `#${task.type || 'TSK'}-${task.id.slice(0, 4)}`;
+  const displayId = `#${task.type || 'TSK'}-${task.task_code || task.id.slice(0, 4)}`;
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="mb-3">

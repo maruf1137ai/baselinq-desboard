@@ -75,6 +75,7 @@ const Index = () => {
                     description={task.title}
                     priority={task.priority ? (task.priority.charAt(0).toUpperCase() + task.priority.slice(1)) as any : "Medium"}
                     dueDate={task.due_date ? new Date(task.due_date).toLocaleDateString() : "No Date"}
+                    id={task.id}
                   />
                 ))
               ) : (
