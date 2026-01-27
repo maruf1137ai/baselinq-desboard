@@ -84,6 +84,10 @@ export default function RFIForm({ setOpen, initialStatus }: any) {
     try {
       const files = await uploadAllFiles(projectId);
 
+      const randomTime = Math.floor(Math.random() * 30) + 1;
+      const randomCost = Math.floor(Math.random() * 900000) + 100000;
+      const randomScore = Math.floor(Math.random() * 100) + 1;
+
       const payload = {
         project_id: projectId,
         title: subject,
@@ -93,9 +97,12 @@ export default function RFIForm({ setOpen, initialStatus }: any) {
         Discipline: discipline,
         Question: question,
         description: files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : "",
-        impact: { time_impact: '20', cost_impact: '78174', score: '11/100' },
+        impact: {
+          time_impact: randomTime.toString(),
+          cost_impact: randomCost.toString(),
+          score: `${randomScore}/100`
+        },
       };
-
       await mutateAsync(payload);
     } catch (err) {
       console.error(err);

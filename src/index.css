@@ -131,6 +131,10 @@ All colors MUST be HSL.
   }
 }
 
+body{
+  font-family: 'Aeonik Pro TRIAL';
+}
+
 .ai-orb-loader {
   position: relative;
   width: 80px;
