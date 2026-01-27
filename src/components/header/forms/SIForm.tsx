@@ -105,6 +105,10 @@ export default function SIForm({ setOpen, initialStatus }: any) {
 
       const formatUrgency = (u: string) => u ? u.charAt(0).toUpperCase() + u.slice(1) : "Medium";
 
+      const randomTime = Math.floor(Math.random() * 30) + 1;
+      const randomCost = Math.floor(Math.random() * 900000) + 100000;
+      const randomScore = Math.floor(Math.random() * 100) + 1;
+
       const payload = {
         project_id: projectId,
         title: formData.title,
@@ -119,7 +123,11 @@ export default function SIForm({ setOpen, initialStatus }: any) {
         "VO Reference": formData.voReference,
         Cost: formData.costImpact,
         description: files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : "",
-        impact: { time_impact: '20', cost_impact: '78174', score: '11/100' },
+        impact: {
+          time_impact: randomTime.toString(),
+          cost_impact: randomCost.toString(),
+          score: `${randomScore}/100`
+        },
       };
 
       await mutateAsync(payload);

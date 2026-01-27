@@ -987,7 +987,7 @@ export default function TaskDetails() {
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium text-[#111827]">{resp.sender}</span>
+                            <span className="text-sm font-medium text-[#111827] capitalize">{resp.sender}</span>
                             <span className="text-[11px] text-[#6B7280]">{new Date(resp.date).toLocaleString()}</span>
                           </div>
                           <div
@@ -1074,11 +1074,46 @@ export default function TaskDetails() {
                       {isLoadingAI ? 'Generating...' : 'Insert AI Draft'}
                     </button>
 
+                    {/* <RequestInfoDialog onSubmit={handleRequestInfoSubmit} /> */}
                     <Button className="font-normal" onClick={handleSubmitReply}>Submit Reply</Button>
                   </div>
                 </div>
+
+
               </Card>
 
+              {/* Action request */}
+              <Card className="p-[25px] shadow-none pt-[22px] bg-white rounded-[14px] border-[#E7E9EB]">
+                <h2 className="text-base  text-[#0E1C2E] mb-5">Action Requests</h2>
+                <div className="space-y-3">
+                  {displayTask.actionRequests && displayTask.actionRequests.map((request: any) => (
+                    <div key={request.id} className="flex items-start gap-4 p-3 bg-white border rounded-[10px]">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-gray-200 text-gray-600 text-xs">
+                          {request.senderName?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 text-xs">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs  text-black capitalize">{request.senderName}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs  text-black capitalize">{request.recipient}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-1">{request.role}</p>
+                        <p className="text-xs text-black">{request.task}</p>
+                        <p className="text-xs text-gray-500 mt-1">Due {new Date(request.date).toLocaleDateString()}</p>
+                      </div>
+                      <Badge className="bg-[#FFF7ED] text-[#F97316] py-1.5 px-3 hover:bg-orange-50 border-[#FED7AA] text-xs">
+                        Pending
+                      </Badge>
+                    </div>
+                  ))}
+
+                  <RequestInfoDialog wFull={true} onSubmit={handleRequestInfoSubmit} />
+                </div>
+
+              </Card>
             </div>
 
             {/* Right Column - Sidebar */}

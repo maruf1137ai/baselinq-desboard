@@ -105,6 +105,10 @@ export default function VOForm({ setOpen, initialStatus }: any) {
       const totalCostVal = items.reduce((acc, item) => acc + (item.qty || 0) * (item.rate || 0), 0);
       const itemsDetails = items.map(i => `- ${i.description} (x${i.qty}) @ R${i.rate} = R${((i.qty || 0) * (i.rate || 0)).toFixed(2)}`).join("\n");
 
+      const randomTime = Math.floor(Math.random() * 30) + 1;
+      const randomCost = Math.floor(Math.random() * 900000) + 100000;
+      const randomScore = Math.floor(Math.random() * 100) + 1;
+
       const fullDescription = `
 ${description}
 
@@ -124,7 +128,11 @@ ${files.length > 0 ? `Attachments: ${JSON.stringify(files)}` : ""}
         Discipline: discipline,
         Cost: `R${totalCostVal.toFixed(2)}`,
         description: fullDescription,
-        impact: { time_impact: '20', cost_impact: '78174', score: '11/100' },
+        impact: {
+          time_impact: randomTime.toString(),
+          cost_impact: randomCost.toString(),
+          score: `${randomScore}/100`
+        },
       };
 
       await mutateAsync(payload);

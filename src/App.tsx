@@ -13,6 +13,7 @@ import TaskDetails from "./pages/TaskDetails";
 import Meetings from "./pages/meetings";
 import MeetingDetails from "./pages/meetingDetails";
 import "./App.css";
+import "../public/fonts/stylesheet.css";
 import Programme from "./pages/programme";
 import Compliance from "./pages/Compliance";
 import Documents from "./pages/Documents";
